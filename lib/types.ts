@@ -1,0 +1,69 @@
+export interface OrderItem {
+  name: string;
+  qty: number;
+  price: number;
+}
+
+export interface MenuItem {
+  id: string;
+  name: string;
+  price: number;
+  /** 선택 첨부 이미지 (data URL) */
+  image?: string;
+}
+
+export interface TableOrder {
+  items: OrderItem[];
+  /** epoch ms — 주문 시작 시각 */
+  startedAt: number;
+}
+
+export interface Table {
+  id: number;
+  number: number;
+  order: TableOrder | null;
+}
+
+export type WaitStage = "received" | "preparing" | "cooked" | "picked-up";
+export type WaitType = "dine-in" | "takeout";
+
+/** 상태 라벨 */
+export const STAGE_LABEL: Record<WaitStage, string> = {
+  received: "주문 접수",
+  preparing: "준비중",
+  cooked: "조리완료",
+  "picked-up": "픽업완료",
+};
+
+/** 주문 유형별 선택 가능한 상태 목록 */
+export const STAGES_BY_TYPE: Record<WaitType, WaitStage[]> = {
+  "dine-in": ["received", "preparing", "cooked"],
+  takeout: ["received", "preparing", "cooked", "picked-up"],
+};
+
+/** 유형별 완료(목록에서 제거) 상태 */
+export const TERMINAL_STAGE: Record<WaitType, WaitStage> = {
+  "dine-in": "cooked",
+  takeout: "picked-up",
+};
+
+export interface WaitingOrder {
+  id: string;
+  type: WaitType;
+  /** dine-in 일 때 테이블 번호 */
+  tableNumber?: number;
+  /** takeout 일 때 주문번호 */
+  orderNo?: string;
+  /** takeout 일 때 픽업 예정 시각 (epoch ms) */
+  pickupAt?: number;
+  items: OrderItem[];
+  createdAt: number;
+  stage: WaitStage;
+  /** 신규 도착 하이라이트 여부 */
+  isNew?: boolean;
+}
+
+export const orderTotal = (items: OrderItem[]): number =>
+  items.reduce((sum, it) => sum + it.price * it.qty, 0);
+
+export const formatKRW = (n: number): string => `${n.toLocaleString("ko-KR")}원`;
