@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react'
 import { ETC_ITEMS, MENU_ITEMS, type TabKey } from '../data'
 import Frame from './Frame'
 import Header from './Header'
@@ -36,6 +37,7 @@ export default function OrderScreen({
   hasSelection,
   onOpenCart,
   onOpenHistory,
+  overlay,
 }: {
   tab: TabKey
   onTabChange: (tab: TabKey) => void
@@ -46,6 +48,8 @@ export default function OrderScreen({
   hasSelection: boolean
   onOpenCart: () => void
   onOpenHistory: () => void
+  // 메뉴 화면 위에 띄우는 오버레이(예: 포장 주문 전화번호 입력 모달).
+  overlay?: ReactNode
 }) {
   const items = tab === 'menu' ? MENU_ITEMS : ETC_ITEMS
 
@@ -80,6 +84,8 @@ export default function OrderScreen({
         disabled={!hasSelection}
         onClick={onOpenCart}
       />
+
+      {overlay}
     </Frame>
   )
 }
