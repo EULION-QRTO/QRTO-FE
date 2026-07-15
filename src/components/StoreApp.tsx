@@ -1,13 +1,16 @@
 import { useState } from 'react'
 import { ALL_ITEMS, type TabKey } from '../data'
+import { useSession } from '../session'
 import OrderScreen from './OrderScreen'
 import CartScreen from './CartScreen'
 import PayScreen from './PayScreen'
 import HistoryScreen from './HistoryScreen'
+import PhoneEntryModal from './PhoneEntryModal'
 
 type View = 'order' | 'cart' | 'pay' | 'history'
 
 export default function StoreApp() {
+  const { session, phone, setPhone } = useSession()
   const [view, setView] = useState<View>('order')
   // 주문내역 화면에서 뒤로가기 시 돌아갈 화면
   const [historyReturn, setHistoryReturn] = useState<View>('order')
@@ -43,11 +46,15 @@ export default function StoreApp() {
     }
   }
 
-  if (view === 'history') {
+  // 포장(togo) 주문은 전화번호를 먼저 입력해야 한다.
+  // 메뉴 화면 위에 전화번호 입력 모달을 띄우고, 입력 전까지는 다른 화면으로 넘어가지 않는다.
+  const phoneGate = session.mode === 'togo' && !phone
+
+  if (!phoneGate && view === 'history') {
     return <HistoryScreen onBack={() => setView(historyReturn)} />
   }
 
-  if (view === 'pay') {
+  if (!phoneGate && view === 'pay') {
     return (
       <PayScreen
         onBack={() => setView('cart')}
@@ -59,7 +66,7 @@ export default function StoreApp() {
     )
   }
 
-  if (view === 'cart') {
+  if (!phoneGate && view === 'cart') {
     return (
       <CartScreen
         quantities={quantities}
@@ -84,6 +91,7 @@ export default function StoreApp() {
       hasSelection={hasSelection}
       onOpenCart={() => setView('cart')}
       onOpenHistory={openHistory}
+      overlay={phoneGate ? <PhoneEntryModal onSubmit={setPhone} /> : undefined}
     />
   )
 }

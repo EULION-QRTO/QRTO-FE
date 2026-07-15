@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import pinBar from '../assets/pin-bar.svg'
 import pinSubtract from '../assets/pin-subtract.svg'
 import pinSubtract1 from '../assets/pin-subtract1.svg'
+import { useSession } from '../session'
 
 function BrandMark() {
   // "EUL" 로고 마크 (Figma) — 주황색 벡터 조각들로 구성
@@ -32,14 +33,17 @@ export default function Header({
   secondRow: ReactNode
   onOrderHistory?: () => void
 }) {
+  const { session, locationLabel } = useSession()
   return (
     <header className="z-20 shrink-0 bg-[#fafbfc] shadow-[0px_1px_10.5px_-3px_rgba(0,0,0,0.25)]">
       <div className="px-[24px] pb-[14px] pt-[calc(env(safe-area-inset-top)+44px)]">
         <div className="flex min-h-[33px] items-center">
           <BrandMark />
-          <h1 className="ml-[12px] text-[24px] font-bold leading-none text-[#181a1f]">을지포차</h1>
+          <h1 className="ml-[12px] text-[24px] font-bold leading-none text-[#181a1f]">
+            {session.storeName}
+          </h1>
           <span className="ml-auto whitespace-nowrap text-[13px] font-semibold text-[#969ca3]">
-            홀 2번 테이블
+            {locationLabel}
           </span>
           {onOrderHistory && (
             <button
