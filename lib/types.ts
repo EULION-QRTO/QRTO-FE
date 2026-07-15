@@ -12,6 +12,16 @@ export interface MenuItem {
   image?: string;
 }
 
+/** 정산 계좌 — 주문 후 고객 송금 대상 계좌 */
+export interface SettlementAccount {
+  /** 은행명 */
+  bank: string;
+  /** 계좌번호 */
+  number: string;
+  /** 예금주 */
+  holder: string;
+}
+
 export interface TableOrder {
   items: OrderItem[];
   /** epoch ms — 주문 시작 시각 */
