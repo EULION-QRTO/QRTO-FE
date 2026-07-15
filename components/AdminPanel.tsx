@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { MenuItem, formatKRW } from "@/lib/types";
+import { MenuItem, SettlementAccount, formatKRW } from "@/lib/types";
 
 export interface SalesSummary {
   dineInSales: number;
@@ -20,6 +20,8 @@ interface Props {
   onAddMenu: (name: string, price: number, image?: string) => void;
   onUpdateMenu: (id: string, patch: Partial<Omit<MenuItem, "id">>) => void;
   onDeleteMenu: (id: string) => void;
+  account: SettlementAccount;
+  onSaveAccount: (account: SettlementAccount) => void;
 }
 
 /** 파일 → data URL */
@@ -78,6 +80,8 @@ export default function AdminPanel({
   onAddMenu,
   onUpdateMenu,
   onDeleteMenu,
+  account,
+  onSaveAccount,
 }: Props) {
   const total = summary.dineInSales + summary.takeoutSales;
   const avg = summary.orderCount > 0 ? Math.round(total / summary.orderCount) : 0;
@@ -85,6 +89,29 @@ export default function AdminPanel({
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newImage, setNewImage] = useState<string | undefined>(undefined);
+
+  // 정산 계좌 편집 초안 (저장 시 커밋)
+  const [acctDraft, setAcctDraft] = useState<SettlementAccount>(account);
+  const [acctSaved, setAcctSaved] = useState(false);
+  const acctDirty =
+    acctDraft.bank !== account.bank ||
+    acctDraft.number !== account.number ||
+    acctDraft.holder !== account.holder;
+  const acctValid =
+    acctDraft.bank.trim() !== "" &&
+    acctDraft.number.trim() !== "" &&
+    acctDraft.holder.trim() !== "";
+
+  const saveAccount = () => {
+    if (!acctValid || !acctDirty) return;
+    onSaveAccount({
+      bank: acctDraft.bank.trim(),
+      number: acctDraft.number.trim(),
+      holder: acctDraft.holder.trim(),
+    });
+    setAcctSaved(true);
+    setTimeout(() => setAcctSaved(false), 2000);
+  };
 
   const clamp = (n: number) => Math.min(MAX_TABLES, Math.max(MIN_TABLES, n));
 
@@ -151,6 +178,62 @@ export default function AdminPanel({
           <span className="admin-setting__hint">
             개수를 줄이면 뒷번호 테이블의 진행중 주문도 함께 삭제됩니다.
           </span>
+        </div>
+      </section>
+
+      {/* ── 정산 계좌 ── */}
+      <section className="admin-card">
+        <h2 className="admin-card__title">정산 계좌</h2>
+        <p className="admin-card__desc">
+          주문 후 고객이 송금할 계좌입니다. 고객 주문 화면의 송금 안내에 연결됩니다.
+        </p>
+        <div className="account-form">
+          <label className="account-field">
+            <span className="account-field__label">은행</span>
+            <input
+              className="field"
+              placeholder="예: 국민은행"
+              value={acctDraft.bank}
+              onChange={(e) => setAcctDraft((d) => ({ ...d, bank: e.target.value }))}
+            />
+          </label>
+          <label className="account-field">
+            <span className="account-field__label">계좌번호</span>
+            <input
+              className="field"
+              inputMode="numeric"
+              placeholder="'-' 없이 숫자만"
+              value={acctDraft.number}
+              onChange={(e) =>
+                setAcctDraft((d) => ({ ...d, number: e.target.value.replace(/[^0-9-]/g, "") }))
+              }
+            />
+          </label>
+          <label className="account-field">
+            <span className="account-field__label">예금주</span>
+            <input
+              className="field"
+              placeholder="예금주명"
+              value={acctDraft.holder}
+              onChange={(e) => setAcctDraft((d) => ({ ...d, holder: e.target.value }))}
+            />
+          </label>
+        </div>
+        <div className="account-form__foot">
+          <span className="account-form__status">
+            {acctSaved
+              ? "✓ 저장되었습니다"
+              : account.number
+                ? `현재: ${account.bank} ${account.number} (${account.holder})`
+                : "등록된 계좌가 없습니다"}
+          </span>
+          <button
+            className="btn btn--primary btn--sm"
+            onClick={saveAccount}
+            disabled={!acctValid || !acctDirty}
+          >
+            저장
+          </button>
         </div>
       </section>
 

@@ -1,3 +1,6 @@
+/*!*******************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************!*\
+  !*** css ./node_modules/.pnpm/next@14.2.5_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/css-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[2]!./node_modules/.pnpm/next@14.2.5_react-dom@18.3.1_react@18.3.1__react@18.3.1/node_modules/next/dist/build/webpack/loaders/postcss-loader/src/index.js??ruleSet[1].rules[13].oneOf[12].use[3]!./app/globals.css ***!
+  \*******************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************************/
 /* =========================================================
    을지포차 POS — 디자인 토큰 (DESIGN.md §2)
    ========================================================= */
@@ -94,10 +97,11 @@ button {
 }
 
 .app__body {
-  flex: 1;
+  flex: 1 1;
   min-height: 0;
   display: grid;
   grid-template-columns: minmax(0, 68fr) minmax(300px, 32fr);
+  grid-gap: var(--space-md);
   gap: var(--space-md);
   padding: var(--space-md);
 }
@@ -284,11 +288,12 @@ button {
 }
 
 .table-grid {
-  flex: 1;
+  flex: 1 1;
   min-height: 0;
   overflow-y: auto;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  grid-gap: var(--space-md);
   gap: var(--space-md);
   align-content: start;
   padding-bottom: var(--space-md);
@@ -386,6 +391,7 @@ button {
   min-height: 0;
   display: grid;
   grid-template-rows: 1fr 1fr;
+  grid-gap: var(--space-md);
   gap: var(--space-md);
 }
 
@@ -429,7 +435,7 @@ button {
 }
 
 .side-section__list {
-  flex: 1;
+  flex: 1 1;
   min-height: 0;
   overflow-y: auto;
   display: flex;
@@ -671,7 +677,7 @@ button {
   background: var(--color-surface-muted);
 }
 .modal__body {
-  flex: 1;
+  flex: 1 1;
   overflow-y: auto;
   padding: var(--space-lg);
 }
@@ -730,7 +736,7 @@ button {
   gap: var(--space-sm);
 }
 .dialog__actions .btn {
-  flex: 1;
+  flex: 1 1;
 }
 
 /* =========================================================
@@ -784,6 +790,7 @@ button {
 .admin__grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-gap: var(--space-md);
   gap: var(--space-md);
 }
 .admin__stat {
@@ -829,6 +836,7 @@ button {
 .account-form {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-gap: var(--space-md);
   gap: var(--space-md);
 }
 .account-field {
@@ -903,7 +911,7 @@ button {
   border-color: var(--color-primary);
 }
 .field--grow {
-  flex: 1;
+  flex: 1 1;
   min-width: 0;
 }
 .field--price {
@@ -1063,7 +1071,7 @@ button {
     border-radius: var(--radius-pill);
   }
   .side-switch__tab {
-    flex: 1;
+    flex: 1 1;
     min-height: 44px;
     border-radius: var(--radius-pill);
     font: var(--font-body);
@@ -1078,3 +1086,4 @@ button {
     display: none;
   }
 }
+

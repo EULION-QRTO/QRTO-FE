@@ -1,4 +1,7 @@
-import { Table, WaitingOrder, MenuItem } from "./types";
+import { Table, WaitingOrder, MenuItem, SettlementAccount } from "./types";
+
+/** 초기 정산 계좌 — 미등록 상태 */
+export const initialAccount: SettlementAccount = { bank: "", number: "", holder: "" };
 
 export const initialMenu: MenuItem[] = [
   { id: "m1", name: "소세지 야채볶음", price: 8500 },
@@ -16,8 +19,8 @@ export const initialMenu: MenuItem[] = [
 const MIN = 60 * 1000;
 const now = Date.now();
 
-/** 20개 좌석 — 일부는 사용중, 일부는 빈 테이블 */
-export const initialTables: Table[] = Array.from({ length: 20 }, (_, i) => {
+/** 12개 좌석 — 일부는 사용중, 일부는 빈 테이블 */
+export const initialTables: Table[] = Array.from({ length: 12 }, (_, i) => {
   const number = i + 1;
   const occupied: Record<number, Table["order"]> = {
     1: { items: [{ name: "소세지 야채볶음", qty: 1, price: 8500 }, { name: "물", qty: 2, price: 0 }], startedAt: now - 4 * MIN },

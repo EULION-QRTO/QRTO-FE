@@ -7,8 +7,8 @@ import TableCard from "@/components/TableCard";
 import Sidebar from "@/components/Sidebar";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import AdminPanel, { SalesSummary } from "@/components/AdminPanel";
-import { Table, WaitingOrder, WaitStage, MenuItem, TERMINAL_STAGE, orderTotal } from "@/lib/types";
-import { initialTables, initialWaiting, sampleNewOrders, initialMenu } from "@/lib/mockData";
+import { Table, WaitingOrder, WaitStage, MenuItem, SettlementAccount, TERMINAL_STAGE, orderTotal } from "@/lib/types";
+import { initialTables, initialWaiting, sampleNewOrders, initialMenu, initialAccount } from "@/lib/mockData";
 
 interface Props {
   storeName: string;
@@ -20,6 +20,7 @@ export default function PosApp({ storeName }: Props) {
   const [tables, setTables] = useState<Table[]>(initialTables);
   const [waiting, setWaiting] = useState<WaitingOrder[]>(initialWaiting);
   const [menu, setMenu] = useState<MenuItem[]>(initialMenu);
+  const [account, setAccount] = useState<SettlementAccount>(initialAccount);
   const [selected, setSelected] = useState<Table | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
 
@@ -145,6 +146,8 @@ export default function PosApp({ storeName }: Props) {
             onAddMenu={addMenuItem}
             onUpdateMenu={updateMenuItem}
             onDeleteMenu={deleteMenuItem}
+            account={account}
+            onSaveAccount={setAccount}
           />
         </div>
       )}
