@@ -1,5 +1,12 @@
 import { useState } from "react";
-import { MenuItem, SettlementAccount, formatKRW } from "@/lib/types";
+import {
+  MenuItem,
+  MenuCategory,
+  MENU_CATEGORIES,
+  DEFAULT_MENU_CATEGORY,
+  SettlementAccount,
+  formatKRW,
+} from "@/lib/types";
 
 export interface SalesSummary {
   dineInSales: number;
@@ -15,7 +22,7 @@ interface Props {
   tableCount: number;
   onTableCountChange: (count: number) => void;
   menu: MenuItem[];
-  onAddMenu: (name: string, price: number, image?: string) => void;
+  onAddMenu: (name: string, price: number, category: MenuCategory, image?: string) => void;
   onUpdateMenu: (id: string, patch: Partial<Omit<MenuItem, "id">>) => void;
   onDeleteMenu: (id: string) => void;
   account: SettlementAccount;
@@ -87,6 +94,7 @@ export default function AdminPanel({
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
   const [newImage, setNewImage] = useState<string | undefined>(undefined);
+  const [newCategory, setNewCategory] = useState<MenuCategory>(DEFAULT_MENU_CATEGORY);
 
   // 정산 계좌 편집 초안 (저장 시 커밋)
   const [acctDraft, setAcctDraft] = useState<SettlementAccount>(account);
@@ -117,10 +125,11 @@ export default function AdminPanel({
     const name = newName.trim();
     const price = parseInt(newPrice, 10);
     if (!name || Number.isNaN(price) || price < 0) return;
-    onAddMenu(name, price, newImage);
+    onAddMenu(name, price, newCategory, newImage);
     setNewName("");
     setNewPrice("");
     setNewImage(undefined);
+    setNewCategory(DEFAULT_MENU_CATEGORY);
   };
 
   return (
@@ -249,6 +258,18 @@ export default function AdminPanel({
             onClear={() => setNewImage(undefined)}
             label="메뉴 사진 첨부 (선택)"
           />
+          <select
+            className="field field--select"
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value as MenuCategory)}
+            aria-label="카테고리"
+          >
+            {MENU_CATEGORIES.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
           <input
             className="field field--grow"
             placeholder="메뉴명"
@@ -280,6 +301,20 @@ export default function AdminPanel({
                 onClear={() => onUpdateMenu(item.id, { image: undefined })}
                 label={`${item.name} 사진`}
               />
+              <select
+                className="field field--select"
+                value={item.category}
+                onChange={(e) =>
+                  onUpdateMenu(item.id, { category: e.target.value as MenuCategory })
+                }
+                aria-label={`${item.name} 카테고리`}
+              >
+                {MENU_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
               <input
                 className="field field--grow"
                 value={item.name}

@@ -1,41 +1,61 @@
 /**
- * 클라이언트 세션.
+ * 인증. 백엔드 로그인 API 로 JWT 를 발급받아 세션에 저장한다.
  *
- * 순수 React SPA 에는 서버가 없으므로, 기존의 HMAC 서명 httpOnly 쿠키 +
- * 미들웨어 방식(서버 검증)을 클라이언트 인증으로 대체한다.
- * - 자격 증명은 목업 계정(accounts)으로 클라이언트에서 검증한다.
- * - 세션(storeId)은 localStorage 에 보관하고, 라우트 가드가 접근을 통제한다.
- *
- * ⚠️ 데모/프론트엔드용. 실제 서비스에서는 백엔드 API + 서버 세션으로 대체해야 한다.
+ * 이전(목업 accounts 클라이언트 검증)을 대체한다:
+ * - login(): POST /api/auth/login → 토큰/매장정보 저장
+ * - me():    GET  /api/auth/me   → 토큰 유효성 확인 + 매장정보 갱신
+ * - logout(): 서버 로그아웃은 없음(JWT stateless). 클라이언트 토큰만 제거한다.
  */
-import { findAccount } from "@/lib/accounts";
+import { authApi } from "@/lib/endpoints";
+import { ApiError } from "@/lib/api";
+import { saveSession, clearSession, getSession, type Session } from "@/lib/session";
 
-const SESSION_KEY = "pos_session";
+export type { Session } from "@/lib/session";
+export { getSession } from "@/lib/session";
 
-export interface Session {
-  storeId: string;
+function toSession(res: { accessToken: string; expiresIn: number; storeId: number; storeName: string }): Session {
+  return {
+    storeId: String(res.storeId),
+    storeName: res.storeName,
+    accessToken: res.accessToken,
+    expiresAt: Date.now() + res.expiresIn * 1000,
+  };
 }
 
-/** 로그인 시도 → 성공 시 세션 저장 후 반환, 실패 시 null */
-export function login(username: string, password: string): Session | null {
-  const account = findAccount(username.trim(), password);
-  if (!account) return null;
-  const session: Session = { storeId: account.storeId };
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  return session;
-}
-
-export function logout(): void {
-  localStorage.removeItem(SESSION_KEY);
-}
-
-export function getSession(): Session | null {
+/**
+ * 로그인 시도.
+ * - 성공: 세션 저장 후 반환
+ * - 자격증명 오류(400/401): null 반환 (LoginPage 가 "아이디/비밀번호 오류" 표시)
+ * - 그 외(네트워크/타임아웃/5xx): ApiError 를 그대로 throw (LoginPage 가 연결 오류 표시)
+ */
+export async function login(username: string, password: string): Promise<Session | null> {
   try {
-    const raw = localStorage.getItem(SESSION_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Session;
-    return parsed && typeof parsed.storeId === "string" ? parsed : null;
+    const res = await authApi.login(username.trim(), password);
+    const session = toSession(res);
+    saveSession(session);
+    return session;
+  } catch (e) {
+    // 실제 자격증명 실패만 null. 네트워크/타임아웃/서버오류는 상위에서 구분해 안내한다.
+    if (e instanceof ApiError && (e.status === 400 || e.status === 401)) return null;
+    throw e;
+  }
+}
+
+/** 현재 토큰 유효성 확인 + 매장정보 갱신. 실패 시 세션 제거 후 null */
+export async function refreshMe(): Promise<Session | null> {
+  try {
+    const res = await authApi.me();
+    const session = toSession(res);
+    saveSession(session);
+    return session;
   } catch {
+    clearSession();
     return null;
   }
 }
+
+export function logout(): void {
+  clearSession();
+}
+
+export { getSession as currentSession };
