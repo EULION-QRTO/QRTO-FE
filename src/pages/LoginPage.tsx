@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { login } from "@/lib/auth";
+import { ApiError } from "@/lib/api";
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -19,18 +20,24 @@ export default function LoginPage() {
       ? "로그인이 필요합니다."
       : null;
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    // 클라이언트 검증 (목업 계정). 실제 서비스에서는 백엔드 로그인 API 호출로 대체.
-    const session = login(username, password);
-    if (!session) {
-      setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+    // 백엔드 로그인 API(POST /api/auth/login) 호출 → JWT 발급.
+    try {
+      const session = await login(username, password);
+      if (!session) {
+        setError("아이디 또는 비밀번호가 올바르지 않습니다.");
+        setLoading(false);
+        return;
+      }
+      navigate(`/store/${session.storeId}`, { replace: true });
+    } catch (err) {
+      const msg = err instanceof ApiError ? err.message : "서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.";
+      setError(msg);
       setLoading(false);
-      return;
     }
-    navigate(`/store/${session.storeId}`, { replace: true });
   };
 
   return (
@@ -71,7 +78,7 @@ export default function LoginPage() {
           {loading ? "확인 중..." : "로그인"}
         </button>
 
-        <p className="login__hint">데모 계정: euljiro / hongdae / gangnam — 비밀번호 1234</p>
+        <p className="login__hint">데모 계정: euljiro / gongdae — 비밀번호 1234</p>
       </form>
     </div>
   );

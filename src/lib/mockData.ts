@@ -4,16 +4,16 @@ import { Table, WaitingOrder, MenuItem, SettlementAccount } from "./types";
 export const initialAccount: SettlementAccount = { bank: "", number: "", holder: "" };
 
 export const initialMenu: MenuItem[] = [
-  { id: "m1", name: "소세지 야채볶음", price: 8500 },
-  { id: "m2", name: "김치찌개", price: 9000 },
-  { id: "m3", name: "제육볶음", price: 11000 },
-  { id: "m4", name: "부대찌개", price: 13000 },
-  { id: "m5", name: "골뱅이무침", price: 15000 },
-  { id: "m6", name: "파전", price: 12000 },
-  { id: "m7", name: "계란말이", price: 7000 },
-  { id: "m8", name: "공기밥", price: 1000 },
-  { id: "m9", name: "소주", price: 4000 },
-  { id: "m10", name: "맥주", price: 5000 },
+  { id: "m1", name: "소세지 야채볶음", price: 8500, category: "메뉴" },
+  { id: "m2", name: "김치찌개", price: 9000, category: "메뉴" },
+  { id: "m3", name: "제육볶음", price: 11000, category: "메뉴" },
+  { id: "m4", name: "부대찌개", price: 13000, category: "메뉴" },
+  { id: "m5", name: "골뱅이무침", price: 15000, category: "메뉴" },
+  { id: "m6", name: "파전", price: 12000, category: "메뉴" },
+  { id: "m7", name: "계란말이", price: 7000, category: "메뉴" },
+  { id: "m8", name: "공기밥", price: 1000, category: "기타" },
+  { id: "m9", name: "소주", price: 4000, category: "기타" },
+  { id: "m10", name: "맥주", price: 5000, category: "기타" },
 ];
 
 const MIN = 60 * 1000;

@@ -4,10 +4,18 @@ export interface OrderItem {
   price: number;
 }
 
+/** 메뉴 분류 */
+export type MenuCategory = "메뉴" | "기타";
+
+export const MENU_CATEGORIES: MenuCategory[] = ["메뉴", "기타"];
+
+export const DEFAULT_MENU_CATEGORY: MenuCategory = "메뉴";
+
 export interface MenuItem {
   id: string;
   name: string;
   price: number;
+  category: MenuCategory;
   /** 선택 첨부 이미지 (data URL) */
   image?: string;
 }
@@ -32,6 +40,8 @@ export interface Table {
   id: number;
   number: number;
   order: TableOrder | null;
+  /** 직원 호출 진행중 여부 (table-status 기준) */
+  staffCallActive?: boolean;
 }
 
 export type WaitStage = "received" | "preparing" | "cooked" | "picked-up";
