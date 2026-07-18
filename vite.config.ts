@@ -6,8 +6,9 @@ import { fileURLToPath, URL } from "node:url";
 export default defineConfig({
   plugins: [react()],
   server: {
+    // 기본 5174 로 띄우되, 이미 사용 중이면 다음 빈 포트를 자동으로 찾는다.
     port: 5174,
-    strictPort: true,
+    strictPort: false,
   },
   resolve: {
     alias: {
