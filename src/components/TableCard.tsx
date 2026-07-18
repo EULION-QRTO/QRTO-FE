@@ -7,12 +7,33 @@ interface Props {
   table: Table;
   now: number;
   onOpen: (table: Table) => void;
+  /** 직원 호출 배지 탭 시 호출 — 해당 테이블의 진행중 호출을 해제한다. */
+  onResolveStaffCall?: (tableId: number) => void;
 }
 
-export default function TableCard({ table, now, onOpen }: Props) {
+export default function TableCard({ table, now, onOpen, onResolveStaffCall }: Props) {
+  // 직원 호출 배지 — 사용중/빈 테이블 공통. 탭하면 호출을 해제한다.
+  const callBadge = table.staffCallActive ? (
+    <button
+      type="button"
+      className="table-card__call-badge"
+      onClick={(e) => {
+        e.stopPropagation();
+        onResolveStaffCall?.(table.id);
+      }}
+      aria-label={`${table.number}번 테이블 직원 호출 — 탭하여 해제`}
+    >
+      🔔 호출
+    </button>
+  ) : null;
+
   if (!table.order) {
     return (
-      <div className="table-card table-card--empty" aria-label={`${table.number}번 빈 테이블`}>
+      <div
+        className={`table-card table-card--empty${table.staffCallActive ? " table-card--calling" : ""}`}
+        aria-label={`${table.number}번 빈 테이블${table.staffCallActive ? " — 직원 호출" : ""}`}
+      >
+        {callBadge}
         <span className="table-card__num">{table.number}</span>
       </div>
     );
@@ -28,10 +49,11 @@ export default function TableCard({ table, now, onOpen }: Props) {
 
   return (
     <button
-      className="table-card table-card--occupied"
+      className={`table-card table-card--occupied${table.staffCallActive ? " table-card--calling" : ""}`}
       onClick={() => onOpen(table)}
       aria-label={`${table.number}번 테이블 주문 상세`}
     >
+      {callBadge}
       {isWarning && <span className="table-card__warn-badge">{mins}분</span>}
       <div className="table-card__top">
         <span className="table-card__num">{table.number}번</span>

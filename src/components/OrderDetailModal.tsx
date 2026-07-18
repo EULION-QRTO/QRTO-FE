@@ -37,7 +37,11 @@ export default function OrderDetailModal({ table, onClose, onClear }: Props) {
         <div className="modal" onClick={(e) => e.stopPropagation()}>
           <div className="modal__head">
             <h2 className="modal__title">{table.number}번 테이블</h2>
-            <span className="modal__sub">주문 {clock(order.startedAt)}</span>
+            <span className="modal__sub">
+              {order.orderIds && order.orderIds.length > 0 &&
+                `주문 ${order.orderIds.map((n) => `#${n}`).join(", ")} · `}
+              {clock(order.startedAt)}
+            </span>
             <button className="modal__close" onClick={onClose} aria-label="닫기">
               ✕
             </button>

@@ -19,6 +19,7 @@ import type {
   OrderType,
   StaffCallResponse,
   SalesSummaryResponse,
+  CreateStoreRequest,
 } from "./dto";
 
 const base = (storeId: string | number) => `/api/stores/${storeId}`;
@@ -39,6 +40,14 @@ export const storeApi = {
   /** PATCH /api/stores/{storeId} — 보낸 필드만 변경 */
   update: (storeId: string | number, patch: UpdateStoreRequest) =>
     http.patch<StoreResponse>(base(storeId), { body: patch }),
+};
+
+/* ── 매장 관리(운영자) — 백엔드 구현 예정 ── */
+export const storeAdminApi = {
+  /** GET /api/stores — 전체 매장 목록 */
+  list: () => http.get<StoreResponse[]>("/api/stores"),
+  /** POST /api/stores — 매장 생성 */
+  create: (req: CreateStoreRequest) => http.post<StoreResponse>("/api/stores", { body: req }),
 };
 
 /* ── 카테고리 ── */

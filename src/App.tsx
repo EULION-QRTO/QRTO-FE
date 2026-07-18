@@ -1,7 +1,10 @@
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import PosApp from "@/components/PosApp";
 import LoginPage from "@/pages/LoginPage";
+import OperatorLoginPage from "@/pages/OperatorLoginPage";
+import OperatorDashboard from "@/pages/OperatorDashboard";
 import { getSession } from "@/lib/auth";
+import { getOperatorSession } from "@/lib/operator";
 
 /** 진입점: 세션이 있으면 해당 주점 POS로, 없으면 로그인으로. */
 function Home() {
@@ -25,6 +28,13 @@ function StoreRoute() {
   return <PosApp storeId={session.storeId} storeName={session.storeName} />;
 }
 
+/** 운영자 라우트 가드. 운영자 세션이 없으면 → /operator/login */
+function OperatorRoute() {
+  const session = getOperatorSession();
+  if (!session) return <Navigate to="/operator/login?reason=auth" replace />;
+  return <OperatorDashboard />;
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -32,6 +42,8 @@ export default function App() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/store/:storeId" element={<StoreRoute />} />
+        <Route path="/operator/login" element={<OperatorLoginPage />} />
+        <Route path="/operator" element={<OperatorRoute />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

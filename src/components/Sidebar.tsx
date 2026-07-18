@@ -6,6 +6,7 @@ interface Props {
   orders: WaitingOrder[];
   now: number;
   onSetStage: (id: string, stage: WaitStage) => void;
+  onCancel: (id: string) => void;
 }
 
 function Section({
@@ -14,6 +15,7 @@ function Section({
   orders,
   now,
   onSetStage,
+  onCancel,
   hidden,
 }: {
   icon: string;
@@ -21,6 +23,7 @@ function Section({
   orders: WaitingOrder[];
   now: number;
   onSetStage: (id: string, stage: WaitStage) => void;
+  onCancel: (id: string) => void;
   hidden?: boolean;
 }) {
   return (
@@ -39,7 +42,13 @@ function Section({
           <p className="side-section__empty">대기 중인 주문이 없습니다</p>
         ) : (
           orders.map((o) => (
-            <WaitingOrderCard key={o.id} order={o} now={now} onSetStage={onSetStage} />
+            <WaitingOrderCard
+              key={o.id}
+              order={o}
+              now={now}
+              onSetStage={onSetStage}
+              onCancel={onCancel}
+            />
           ))
         )}
       </div>
@@ -47,7 +56,7 @@ function Section({
   );
 }
 
-export default function Sidebar({ orders, now, onSetStage }: Props) {
+export default function Sidebar({ orders, now, onSetStage, onCancel }: Props) {
   const [mobileTab, setMobileTab] = useState<"dine-in" | "takeout">("dine-in");
   const dineIn = orders.filter((o) => o.type === "dine-in");
   const takeout = orders.filter((o) => o.type === "takeout");
@@ -80,6 +89,7 @@ export default function Sidebar({ orders, now, onSetStage }: Props) {
         orders={dineIn}
         now={now}
         onSetStage={onSetStage}
+        onCancel={onCancel}
         hidden={mobileTab !== "dine-in"}
       />
       <Section
@@ -88,6 +98,7 @@ export default function Sidebar({ orders, now, onSetStage }: Props) {
         orders={takeout}
         now={now}
         onSetStage={onSetStage}
+        onCancel={onCancel}
         hidden={mobileTab !== "takeout"}
       />
     </aside>

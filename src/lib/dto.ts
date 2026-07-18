@@ -24,6 +24,16 @@ export interface LoginResponse {
 }
 
 /* ── 매장 ── */
+/** 매장 생성 요청 (운영자). 백엔드 POST /api/stores 구현 예정. */
+export interface CreateStoreRequest {
+  name: string;
+  /** 운영단체 (백엔드 필드 추가 예정) */
+  org?: string;
+  takeoutEnabled?: boolean;
+  /** 운영자가 사전 설정하는 주점 로그인 자격증명 (서버가 계정 생성/해시) */
+  username: string;
+  password: string;
+}
 export interface StoreResponse {
   id: number;
   name: string;
