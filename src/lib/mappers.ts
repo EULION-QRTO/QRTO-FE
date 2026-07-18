@@ -22,6 +22,7 @@ import {
   DEFAULT_MENU_CATEGORY,
   SettlementAccount,
 } from "./types";
+import { resolveAssetUrl } from "./config";
 
 /** 서버 시각("2026-07-15T18:32:11.123456", TZ 없음 = KST)을 epoch ms 로. 소수점 이하는 ms 로 절삭. */
 export function parseServerTime(iso: string | null | undefined): number {
@@ -51,6 +52,7 @@ export function toTable(ts: TableStatusResponse): Table {
             price: s.unitPrice,
           })),
           startedAt: parseServerTime(ts.startedAt),
+          orderIds: ts.orderIds,
         }
       : null,
   };
@@ -113,7 +115,7 @@ export function toMenuItem(m: MenuResponse, categoryNameById: Map<number, string
     name: m.name,
     price: m.price,
     category: toMenuCategory(categoryNameById.get(m.categoryId)),
-    image: m.imageUrl ?? undefined,
+    image: resolveAssetUrl(m.imageUrl),
   };
 }
 

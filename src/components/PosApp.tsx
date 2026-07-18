@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { logout as clearSession } from "@/lib/auth";
 import { ApiError } from "@/lib/api";
@@ -10,6 +10,7 @@ import {
   orderApi,
   tableApi,
   salesApi,
+  staffCallApi,
 } from "@/lib/endpoints";
 import { connectRealtime } from "@/lib/realtime";
 import {
@@ -27,7 +28,7 @@ import Header, { MainTab } from "@/components/Header";
 import TableCard from "@/components/TableCard";
 import Sidebar from "@/components/Sidebar";
 import OrderDetailModal from "@/components/OrderDetailModal";
-import AdminPanel, { SalesSummary } from "@/components/AdminPanel";
+import AdminPanel from "@/components/AdminPanel";
 import {
   Table,
   WaitingOrder,
@@ -174,13 +175,27 @@ export default function PosApp({ storeId, storeName }: Props) {
     return disconnect;
   }, [storeId, reloadTablesAndOrders, reloadTables, reloadSales]);
 
-  /** 주문 상태 변경 (PATCH .../orders/{id}/status) */
+  /**
+   * 주문 상태 변경 (PATCH .../orders/{id}/status)
+   * 드롭다운에서 고른 단계를 그대로(최종 값) 서버에 전달한다.
+   * 앞으로 건너뛰기도, 실수 정정을 위한 되돌리기(예: 조리완료 → 조리중)도 모두 가능.
+   */
   const setStage = async (id: string, stage: WaitStage) => {
     try {
       await orderApi.setStatus(storeId, Number(id), stageToStatus(stage));
       await reloadTablesAndOrders();
     } catch (e) {
       handleError(e, "주문 상태를 변경하지 못했습니다.");
+    }
+  };
+
+  /** 주문 취소 (PATCH .../orders/{id}/status → CANCELED). 매출 요약에도 반영. */
+  const cancelOrder = async (id: string) => {
+    try {
+      await orderApi.setStatus(storeId, Number(id), "CANCELED");
+      await Promise.all([reloadTablesAndOrders(), reloadSales()]);
+    } catch (e) {
+      handleError(e, "주문을 취소하지 못했습니다.");
     }
   };
 
@@ -194,18 +209,45 @@ export default function PosApp({ storeId, storeName }: Props) {
     }
   };
 
-  /** 테이블 개수 변경 (PATCH /stores/{id} tableCount) */
+  /** 직원 호출 해제 — 테이블의 진행중(CALLED) 호출을 모두 RESOLVED 처리 */
+  const resolveStaffCall = async (tableId: number) => {
+    try {
+      const active = await staffCallApi.list(storeId, true);
+      const targets = active.filter((c) => c.tableId === tableId);
+      if (targets.length === 0) {
+        await reloadTables();
+        return;
+      }
+      await Promise.all(targets.map((c) => staffCallApi.resolve(storeId, c.id)));
+      await reloadTables();
+    } catch (e) {
+      handleError(e, "직원 호출을 해제하지 못했습니다.");
+    }
+  };
+
+  /**
+   * 테이블 개수 변경 (PUT /stores/{id}/tables/bulk)
+   * 실제 테이블 행을 생성/삭제해 개수를 맞춘 뒤, 테이블 현황을 다시 불러와
+   * POS 그리드에 즉시 반영한다. (store.tableCount 만 바꾸면 그리드는 갱신되지 않음)
+   */
   const setTableCount = async (count: number) => {
     try {
-      const store = await storeApi.update(storeId, { tableCount: count });
-      setTableCountState(store.tableCount);
-      await reloadTables();
+      const result = await tableApi.bulk(storeId, count);
+      // 응답에 tableCount 가 없을 수 있으니 tables 길이 → 요청값 순으로 폴백
+      const next = result?.tableCount ?? result?.tables?.length ?? count;
+      setTableCountState(next);
+      await reloadTablesAndOrders();
     } catch (e) {
       handleError(e, "테이블 개수를 변경하지 못했습니다.");
     }
   };
 
-  const addMenuItem = async (name: string, price: number, category: MenuCategory) => {
+  const addMenuItem = async (
+    name: string,
+    price: number,
+    category: MenuCategory,
+    imageFile?: File,
+  ) => {
     try {
       const idByName = categoryIdByName(categories);
       const categoryId = idByName.get(category) ?? categories[0]?.id;
@@ -213,34 +255,46 @@ export default function PosApp({ storeId, storeName }: Props) {
         setNotice("카테고리가 없어 메뉴를 추가할 수 없습니다.");
         return;
       }
-      const created = await menuApi.create(storeId, { categoryId, name, price });
+      // 이미지가 있으면 먼저 업로드해 URL 을 받고, 생성 요청에 포함한다.
+      const imageUrl = imageFile
+        ? (await menuApi.uploadImage(storeId, imageFile)).imageUrl
+        : undefined;
+      const created = await menuApi.create(storeId, { categoryId, name, price, imageUrl });
       setMenu((prev) => [...prev, toMenuItem(created, categoryNameMap(categories))]);
     } catch (e) {
       handleError(e, "메뉴를 추가하지 못했습니다.");
     }
   };
 
-  const updateMenuItem = async (id: string, patch: Partial<Omit<MenuItem, "id">>) => {
-    // 이미지 업로드는 백엔드 미구현 → 로컬 상태로만 반영. 나머지 필드는 서버에 PATCH.
-    const { image, ...rest } = patch;
+  const updateMenuItem = async (id: string, patch: Partial<Omit<MenuItem, "id" | "image">>) => {
     const apiPatch: { name?: string; price?: number; categoryId?: number } = {};
-    if (rest.name !== undefined) apiPatch.name = rest.name;
-    if (rest.price !== undefined) apiPatch.price = rest.price;
-    if (rest.category !== undefined) {
-      const cid = categoryIdByName(categories).get(rest.category);
+    if (patch.name !== undefined) apiPatch.name = patch.name;
+    if (patch.price !== undefined) apiPatch.price = patch.price;
+    if (patch.category !== undefined) {
+      const cid = categoryIdByName(categories).get(patch.category);
       if (cid != null) apiPatch.categoryId = cid;
     }
+    if (Object.keys(apiPatch).length === 0) return;
     try {
-      if (Object.keys(apiPatch).length > 0) {
-        await menuApi.update(storeId, Number(id), apiPatch);
-      }
-      setMenu((prev) => prev.map((m) => (m.id === id ? { ...m, ...patch } : m)));
-      if (image !== undefined) {
-        setNotice("이미지는 서버 저장이 아직 지원되지 않아 화면에만 반영됩니다.");
-        setTimeout(() => setNotice(null), 4000);
-      }
+      const updated = await menuApi.update(storeId, Number(id), apiPatch);
+      setMenu((prev) =>
+        prev.map((m) => (m.id === id ? toMenuItem(updated, categoryNameMap(categories)) : m)),
+      );
     } catch (e) {
       handleError(e, "메뉴를 수정하지 못했습니다.");
+    }
+  };
+
+  /** 메뉴 이미지 업로드/제거 (file=null → 제거). 서버에 imageUrl PATCH. */
+  const setMenuImage = async (id: string, file: File | null) => {
+    try {
+      const imageUrl = file ? (await menuApi.uploadImage(storeId, file)).imageUrl : null;
+      const updated = await menuApi.update(storeId, Number(id), { imageUrl });
+      setMenu((prev) =>
+        prev.map((m) => (m.id === id ? toMenuItem(updated, categoryNameMap(categories)) : m)),
+      );
+    } catch (e) {
+      handleError(e, "메뉴 이미지를 저장하지 못했습니다.");
     }
   };
 
@@ -279,15 +333,6 @@ export default function PosApp({ storeId, storeName }: Props) {
 
   const occupiedCount = tables.filter((t) => t.order).length;
 
-  const salesSummary: SalesSummary = useMemo(
-    () => ({
-      dineInSales: sales?.dineInSales ?? 0,
-      takeoutSales: sales?.takeoutSales ?? 0,
-      orderCount: sales?.orderCount ?? 0,
-    }),
-    [sales],
-  );
-
   const todaySales = sales?.totalSales ?? 0;
 
   return (
@@ -317,23 +362,30 @@ export default function PosApp({ storeId, storeName }: Props) {
             ) : (
               <div className="table-grid">
                 {tables.map((t) => (
-                  <TableCard key={t.id} table={t} now={now} onOpen={setSelected} />
+                  <TableCard
+                    key={t.id}
+                    table={t}
+                    now={now}
+                    onOpen={setSelected}
+                    onResolveStaffCall={resolveStaffCall}
+                  />
                 ))}
               </div>
             )}
           </main>
 
-          <Sidebar orders={waiting} now={now} onSetStage={setStage} />
+          <Sidebar orders={waiting} now={now} onSetStage={setStage} onCancel={cancelOrder} />
         </div>
       ) : (
         <div className="app__body">
           <AdminPanel
-            summary={salesSummary}
+            storeId={storeId}
             tableCount={tableCount}
             onTableCountChange={setTableCount}
             menu={menu}
             onAddMenu={addMenuItem}
             onUpdateMenu={updateMenuItem}
+            onSetMenuImage={setMenuImage}
             onDeleteMenu={deleteMenuItem}
             account={account}
             onSaveAccount={saveAccount}

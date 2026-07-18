@@ -16,7 +16,7 @@ export interface MenuItem {
   name: string;
   price: number;
   category: MenuCategory;
-  /** 선택 첨부 이미지 (data URL) */
+  /** 선택 첨부 이미지 (서버 imageUrl 을 절대 URL 로 변환한 값) */
   image?: string;
 }
 
@@ -34,6 +34,8 @@ export interface TableOrder {
   items: OrderItem[];
   /** epoch ms — 주문 시작 시각 */
   startedAt: number;
+  /** 이 테이블에 묶인 주문 ID 목록 (table-status 기준) */
+  orderIds?: number[];
 }
 
 export interface Table {

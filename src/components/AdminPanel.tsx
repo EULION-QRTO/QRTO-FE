@@ -1,42 +1,29 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   MenuItem,
   MenuCategory,
   MENU_CATEGORIES,
   DEFAULT_MENU_CATEGORY,
   SettlementAccount,
-  formatKRW,
 } from "@/lib/types";
-
-export interface SalesSummary {
-  dineInSales: number;
-  takeoutSales: number;
-  orderCount: number;
-}
+import SalesSummaryCard from "@/components/SalesSummaryCard";
 
 const MIN_TABLES = 1;
 const MAX_TABLES = 60;
 
 interface Props {
-  summary: SalesSummary;
+  storeId: string;
   tableCount: number;
   onTableCountChange: (count: number) => void;
   menu: MenuItem[];
-  onAddMenu: (name: string, price: number, category: MenuCategory, image?: string) => void;
-  onUpdateMenu: (id: string, patch: Partial<Omit<MenuItem, "id">>) => void;
+  onAddMenu: (name: string, price: number, category: MenuCategory, imageFile?: File) => void;
+  onUpdateMenu: (id: string, patch: Partial<Omit<MenuItem, "id" | "image">>) => void;
+  /** 메뉴 이미지 업로드/제거. file=null 이면 제거. */
+  onSetMenuImage: (id: string, file: File | null) => void;
   onDeleteMenu: (id: string) => void;
   account: SettlementAccount;
   onSaveAccount: (account: SettlementAccount) => void;
 }
-
-/** 파일 → data URL */
-const readImage = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
 
 function ImagePicker({
   value,
@@ -45,7 +32,7 @@ function ImagePicker({
   label,
 }: {
   value?: string;
-  onPick: (dataUrl: string) => void;
+  onPick: (file: File) => void;
   onClear?: () => void;
   label: string;
 }) {
@@ -61,9 +48,9 @@ function ImagePicker({
           type="file"
           accept="image/*"
           className="thumb__input"
-          onChange={async (e) => {
+          onChange={(e) => {
             const file = e.target.files?.[0];
-            if (file) onPick(await readImage(file));
+            if (file) onPick(file);
             e.target.value = "";
           }}
         />
@@ -78,23 +65,34 @@ function ImagePicker({
 }
 
 export default function AdminPanel({
-  summary,
+  storeId,
   tableCount,
   onTableCountChange,
   menu,
   onAddMenu,
   onUpdateMenu,
+  onSetMenuImage,
   onDeleteMenu,
   account,
   onSaveAccount,
 }: Props) {
-  const total = summary.dineInSales + summary.takeoutSales;
-  const avg = summary.orderCount > 0 ? Math.round(total / summary.orderCount) : 0;
-
   const [newName, setNewName] = useState("");
   const [newPrice, setNewPrice] = useState("");
-  const [newImage, setNewImage] = useState<string | undefined>(undefined);
+  const [newImageFile, setNewImageFile] = useState<File | undefined>(undefined);
+  const [newImagePreview, setNewImagePreview] = useState<string | undefined>(undefined);
   const [newCategory, setNewCategory] = useState<MenuCategory>(DEFAULT_MENU_CATEGORY);
+
+  // 새 메뉴 이미지 선택: 로컬 미리보기(objectURL) 생성 후 파일 보관
+  const pickNewImage = (file: File) => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(file);
+    setNewImagePreview(URL.createObjectURL(file));
+  };
+  const clearNewImage = () => {
+    if (newImagePreview) URL.revokeObjectURL(newImagePreview);
+    setNewImageFile(undefined);
+    setNewImagePreview(undefined);
+  };
 
   // 정산 계좌 편집 초안 (저장 시 커밋)
   const [acctDraft, setAcctDraft] = useState<SettlementAccount>(account);
@@ -119,44 +117,42 @@ export default function AdminPanel({
     setTimeout(() => setAcctSaved(false), 2000);
   };
 
-  const clamp = (n: number) => Math.min(MAX_TABLES, Math.max(MIN_TABLES, n));
+  const clamp = (n: number) =>
+    Number.isFinite(n) ? Math.min(MAX_TABLES, Math.max(MIN_TABLES, n)) : MIN_TABLES;
+
+  // 테이블 스텝퍼: 로컬에서 자유롭게 조절하고 저장 시에만 서버 반영(bulk).
+  // 서버 왕복을 기다리지 않고 연속으로 늘리고 줄일 수 있다.
+  const [localTableCount, setLocalTableCount] = useState(() => clamp(tableCount));
+  const [tableSaved, setTableSaved] = useState(false);
+  const tableDirty = localTableCount !== clamp(tableCount);
+
+  // 서버 값이 바뀌면 로컬 초안 동기화 (저장 완료 후 포함). NaN/undefined 방어.
+  useEffect(() => {
+    setLocalTableCount(clamp(tableCount));
+  }, [tableCount]);
+
+  const saveTableCount = () => {
+    if (!tableDirty) return;
+    onTableCountChange(localTableCount);
+    setTableSaved(true);
+    setTimeout(() => setTableSaved(false), 2000);
+  };
 
   const submitNew = () => {
     const name = newName.trim();
     const price = parseInt(newPrice, 10);
     if (!name || Number.isNaN(price) || price < 0) return;
-    onAddMenu(name, price, newCategory, newImage);
+    onAddMenu(name, price, newCategory, newImageFile);
     setNewName("");
     setNewPrice("");
-    setNewImage(undefined);
+    clearNewImage();
     setNewCategory(DEFAULT_MENU_CATEGORY);
   };
 
   return (
     <div className="admin">
-      {/* ── 오늘 매출 ── */}
-      <section className="admin-card">
-        <h2 className="admin-card__title">오늘 매출</h2>
-        <div className="admin__total-value">{formatKRW(total)}</div>
-        <div className="admin__grid">
-          <div className="admin__stat">
-            <div className="admin__stat-label">🟠 현장 주문 매출</div>
-            <div className="admin__stat-value">{formatKRW(summary.dineInSales)}</div>
-          </div>
-          <div className="admin__stat">
-            <div className="admin__stat-label">📦 포장 주문 매출</div>
-            <div className="admin__stat-value">{formatKRW(summary.takeoutSales)}</div>
-          </div>
-          <div className="admin__stat">
-            <div className="admin__stat-label">총 주문 건수</div>
-            <div className="admin__stat-value">{summary.orderCount.toLocaleString("ko-KR")}건</div>
-          </div>
-          <div className="admin__stat">
-            <div className="admin__stat-label">평균 객단가</div>
-            <div className="admin__stat-value admin__stat-value--accent">{formatKRW(avg)}</div>
-          </div>
-        </div>
-      </section>
+      {/* ── 매출 요약 (날짜 조회 · CSV/XLSX 내보내기) ── */}
+      <SalesSummaryCard storeId={storeId} />
 
       {/* ── 테이블 설정 ── */}
       <section className="admin-card">
@@ -166,24 +162,33 @@ export default function AdminPanel({
           <div className="stepper">
             <button
               className="stepper__btn"
-              onClick={() => onTableCountChange(clamp(tableCount - 1))}
-              disabled={tableCount <= MIN_TABLES}
+              onClick={() => setLocalTableCount(clamp(localTableCount - 1))}
+              disabled={localTableCount <= MIN_TABLES}
               aria-label="테이블 개수 감소"
             >
               −
             </button>
-            <span className="stepper__value">{tableCount}</span>
+            <span className="stepper__value">{localTableCount}</span>
             <button
               className="stepper__btn"
-              onClick={() => onTableCountChange(clamp(tableCount + 1))}
-              disabled={tableCount >= MAX_TABLES}
+              onClick={() => setLocalTableCount(clamp(localTableCount + 1))}
+              disabled={localTableCount >= MAX_TABLES}
               aria-label="테이블 개수 증가"
             >
               +
             </button>
           </div>
+          <button
+            className="btn btn--primary btn--sm"
+            onClick={saveTableCount}
+            disabled={!tableDirty}
+          >
+            저장
+          </button>
           <span className="admin-setting__hint">
-            개수를 줄이면 뒷번호 테이블의 진행중 주문도 함께 삭제됩니다.
+            {tableSaved
+              ? "✓ 저장되었습니다"
+              : "저장을 눌러야 서버와 POS 화면에 반영됩니다. 개수를 줄이면 뒷번호 테이블의 진행중 주문도 함께 삭제됩니다."}
           </span>
         </div>
       </section>
@@ -253,9 +258,9 @@ export default function AdminPanel({
 
         <div className="menu-add">
           <ImagePicker
-            value={newImage}
-            onPick={setNewImage}
-            onClear={() => setNewImage(undefined)}
+            value={newImagePreview}
+            onPick={pickNewImage}
+            onClear={clearNewImage}
             label="메뉴 사진 첨부 (선택)"
           />
           <select
@@ -297,8 +302,8 @@ export default function AdminPanel({
             <li className="menu-row" key={item.id}>
               <ImagePicker
                 value={item.image}
-                onPick={(dataUrl) => onUpdateMenu(item.id, { image: dataUrl })}
-                onClear={() => onUpdateMenu(item.id, { image: undefined })}
+                onPick={(file) => onSetMenuImage(item.id, file)}
+                onClear={() => onSetMenuImage(item.id, null)}
                 label={`${item.name} 사진`}
               />
               <select
