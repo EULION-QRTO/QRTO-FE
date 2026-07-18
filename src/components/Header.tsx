@@ -1,27 +1,10 @@
 import type { ReactNode } from 'react'
-import pinBar from '../assets/pin-bar.svg'
-import pinSubtract from '../assets/pin-subtract.svg'
-import pinSubtract1 from '../assets/pin-subtract1.svg'
+import lpayLogo from '../assets/LPay.svg'
 import { useSession } from '../session'
 
 function BrandMark() {
-  // "EUL" 로고 마크 (Figma) — 주황색 벡터 조각들로 구성
-  return (
-    <div className="relative h-[17px] w-[23px] shrink-0">
-      <div className="absolute inset-[41.1%_47.64%_41.78%_0]">
-        <img alt="" className="absolute block inset-0 max-w-none size-full" src={pinBar} />
-      </div>
-      <div className="absolute inset-[82.88%_47.64%_0_0]">
-        <img alt="" className="absolute block inset-0 max-w-none size-full" src={pinBar} />
-      </div>
-      <div className="absolute inset-[0_47.64%_82.88%_0.31%]">
-        <img alt="" className="absolute block inset-0 max-w-none size-full" src={pinSubtract} />
-      </div>
-      <div className="absolute inset-[0_0_0_42.41%]">
-        <img alt="" className="absolute block inset-0 max-w-none size-full" src={pinSubtract1} />
-      </div>
-    </div>
-  )
+  // 브랜드 로고 (LPay). 원본 비율 59:29 유지.
+  return <img alt="LPay" className="h-[20px] w-auto shrink-0" src={lpayLogo} />
 }
 
 // 모든 화면이 공유하는 상단 헤더. 두 번째 줄(탭 / 뒤로가기·제목)은 secondRow로 주입한다.
