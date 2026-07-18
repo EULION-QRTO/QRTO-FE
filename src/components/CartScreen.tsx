@@ -1,4 +1,4 @@
-import { ALL_ITEMS } from '../data'
+import { type Product } from '../data'
 import Frame from './Frame'
 import Header from './Header'
 import BottomButton from './BottomButton'
@@ -6,24 +6,28 @@ import ProductCard from './ProductCard'
 import backArrow from '../assets/back-arrow.svg'
 
 export default function CartScreen({
+  items,
   quantities,
   onIncrement,
   onDecrement,
   total,
+  placing,
   onBack,
   onPay,
   onOpenHistory,
 }: {
+  items: Product[]
   quantities: Record<string, number>
   onIncrement: (id: string) => void
   onDecrement: (id: string) => void
   total: number
+  placing: boolean
   onBack: () => void
   onPay: () => void
   onOpenHistory: () => void
 }) {
   // 장바구니에는 수량이 1개 이상인 항목만 표시한다.
-  const cartItems = ALL_ITEMS.filter((item) => (quantities[item.id] ?? 0) > 0)
+  const cartItems = items.filter((item) => (quantities[item.id] ?? 0) > 0)
   // 0원 상품만 담겨 있어도 담긴 상품이 있으면 결제로 진행할 수 있어야 한다.
   const hasSelection = cartItems.length > 0
 
@@ -67,9 +71,9 @@ export default function CartScreen({
       </main>
 
       <BottomButton
-        label={`${total.toLocaleString()}원 결제하기`}
-        active={hasSelection}
-        disabled={!hasSelection}
+        label={placing ? '주문 처리 중…' : `${total.toLocaleString()}원 결제하기`}
+        active={hasSelection && !placing}
+        disabled={!hasSelection || placing}
         onClick={onPay}
       />
     </Frame>
