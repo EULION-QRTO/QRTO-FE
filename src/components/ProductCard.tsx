@@ -72,8 +72,16 @@ export default function ProductCard({
       </div>
 
       <div className="relative size-[87px] shrink-0 self-start">
-        <img alt={item.name} className="size-full rounded-[16px] object-cover" src={item.image} />
-        {quantity > 0 ? (
+        <img
+          alt={item.name}
+          className={`size-full rounded-[16px] object-cover ${item.soldOut ? 'opacity-40' : ''}`}
+          src={item.image}
+        />
+        {item.soldOut ? (
+          <span className="absolute bottom-[-3px] right-0 rounded-[60px] bg-[#bebebe] px-[10px] py-[4px] text-[12px] font-bold leading-none text-white">
+            품절
+          </span>
+        ) : quantity > 0 ? (
           <QuantityCounter
             quantity={quantity}
             onIncrement={onIncrement}

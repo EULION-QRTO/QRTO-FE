@@ -6,10 +6,14 @@ import money from '../assets/money.svg'
 
 // 결제(결재)대기 화면 — 유료 상품이 있는 주문에서 "결제하기"를 누르면 진입한다.
 export default function PayScreen({
+  amount,
+  placing,
   onBack,
   onComplete,
   onOpenHistory,
 }: {
+  amount: number
+  placing: boolean
   onBack: () => void
   onComplete: () => void
   onOpenHistory: () => void
@@ -38,13 +42,18 @@ export default function PayScreen({
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[40px] px-[30px] pb-[110px]">
         <img alt="" className="size-[96px]" src={money} />
         <p className="text-center text-[24px] font-bold leading-[normal] text-black">
-          결제가 완료되면
+          {amount.toLocaleString()}원 결제 후
           <br />
           결제 완료 버튼을 눌러주세요.
         </p>
       </main>
 
-      <BottomButton label="결제 완료" active onClick={onComplete} />
+      <BottomButton
+        label={placing ? '결제 확인 중…' : '결제 완료'}
+        active={!placing}
+        disabled={placing}
+        onClick={onComplete}
+      />
     </Frame>
   )
 }

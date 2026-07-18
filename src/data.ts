@@ -1,7 +1,6 @@
 import food from './assets/food.png'
-import staffCall from './assets/staff-call.png'
-import water from './assets/water.png'
-import spoon from './assets/spoon.png'
+import { assetUrl } from './lib/config'
+import type { MenuResponse, MenuBoardResponse } from './lib/dto'
 
 export type Product = {
   id: string
@@ -9,43 +8,38 @@ export type Product = {
   price: number
   description: string
   image: string
+  soldOut: boolean
 }
 
 export type TabKey = 'menu' | 'etc'
 
-const SAUSAGE_DESCRIPTION =
-  '맛있는 소세지와 양파, 파프리카 등 각종 채소들로 건강하면서 맛있는 소세지 야채볶음.'
+// 이미지가 없는 메뉴에 쓰는 기본 이미지.
+export const PLACEHOLDER_IMAGE = food
 
-export const MENU_ITEMS: Product[] = Array.from({ length: 5 }, (_, i) => ({
-  id: `m${i + 1}`,
-  name: '소세지 야채볶음',
-  price: 8500,
-  description: SAUSAGE_DESCRIPTION,
-  image: food,
-}))
+export function toProduct(m: MenuResponse): Product {
+  return {
+    id: String(m.id),
+    name: m.name,
+    price: m.price,
+    description: m.description ?? '',
+    image: assetUrl(m.imageUrl) ?? PLACEHOLDER_IMAGE,
+    soldOut: m.soldOut,
+  }
+}
 
-export const ETC_ITEMS: Product[] = [
-  {
-    id: 'e1',
-    name: '직원 호출',
-    price: 0,
-    description: '팁 주세요.',
-    image: staffCall,
-  },
-  {
-    id: 'e2',
-    name: '물',
-    price: 0,
-    description: '신선하고 깨끗한 탄천에서 건져올린 금붕어가 든 물. 개수 늘려서 추가 가능.',
-    image: water,
-  },
-  {
-    id: 'e3',
-    name: '수저',
-    price: 0,
-    description: '자작나무를 자작자작 태우며 만든 공장 나무젓가락. 개수 늘려서 추가 가능.',
-    image: spoon,
-  },
-]
-
-export const ALL_ITEMS: Product[] = [...MENU_ITEMS, ...ETC_ITEMS]
+/**
+ * 메뉴판(카테고리별)을 손님앱 2탭 구조(메뉴/기타)로 나눈다.
+ * - '메뉴' 탭: 카테고리명이 '메뉴'인 그룹(없으면 sortOrder 가장 앞 그룹)
+ * - '기타' 탭: 나머지 카테고리의 메뉴 전체
+ */
+export function splitMenuBoard(board: MenuBoardResponse): { menu: Product[]; etc: Product[] } {
+  const cats = [...board.categories].sort((a, b) => a.sortOrder - b.sortOrder)
+  const menuCat = cats.find((c) => c.categoryName === '메뉴') ?? cats[0]
+  const menu: Product[] = []
+  const etc: Product[] = []
+  for (const c of cats) {
+    const target = c === menuCat ? menu : etc
+    for (const m of c.menus) target.push(toProduct(m))
+  }
+  return { menu, etc }
+}
