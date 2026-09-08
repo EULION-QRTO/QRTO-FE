@@ -3,7 +3,7 @@
 QRTO 프론트엔드가 QR 스캔 URL을 해석해 **테이블 주문 / 포장(픽업, togo) 주문**을 구분하는 방식과,
 그로 인해 백엔드와 맞춰야 하는 규약·API·데이터 모델을 정리한 문서다.
 
-> 현재 프론트엔드는 메뉴/주문 데이터를 `src/data.ts`의 목업으로 렌더링하며, 실제 API 연동은 아직 없다.
+> 현재 프론트엔드는 메뉴/주문 데이터를 `src/store/data.ts`의 목업으로 렌더링하며, 실제 API 연동은 아직 없다.
 > 이 문서의 "필요" 항목은 실 연동 시 백엔드가 제공/검증해야 하는 지점을 뜻한다.
 
 ---
@@ -15,7 +15,7 @@ QRTO 프론트엔드가 QR 스캔 URL을 해석해 **테이블 주문 / 포장(�
 - **테이블 주문** — QR에 테이블 번호가 고정되어 있다. 손님 입력 없이 바로 메뉴로 진입.
 - **포장(togo) 주문** — 테이블이 없다. 손님이 **전화번호**를 입력하고, 그 **뒷 4자리**로 주문을 구분/픽업한다.
 
-관련 프론트 코드: `src/session.tsx` (URL 파싱 + 전역 세션), `src/components/PhoneEntryModal.tsx` (전화번호 입력 모달).
+관련 프론트 코드: `src/store/session.tsx` (URL 파싱 + 전역 세션), `src/store/components/PhoneEntryModal.tsx` (전화번호 입력 모달).
 
 ---
 
@@ -59,7 +59,7 @@ QR 코드에 인코딩되는 URL은 **쿼리 파라미터**로 매장·주문 �
 - **다른 기기·프라이빗 모드 등으로 전체 번호가 없을 때**: 백엔드가 전체 번호를 요구하므로 **모달을 다시 띄워 재입력**받는다.
   (URL 뒷자리만으로는 주문을 생성하지 않는다.)
 
-관련 프론트 코드: `parseTogoLast4()`, `readStoredPhone()`, `SessionProvider.setPhone()` (`src/session.tsx`).
+관련 프론트 코드: `parseTogoLast4()`, `readStoredPhone()`, `SessionProvider.setPhone()` (`src/store/session.tsx`).
 
 ### QR 발급 관점 — 백엔드가 정해야 할 것
 
@@ -103,7 +103,7 @@ GET /api/stores/{store}/context?mode=togo
 
 ### 3.2 메뉴 조회 — **신규 필요**
 
-현재 `src/data.ts`의 `MENU_ITEMS`/`ETC_ITEMS`를 대체.
+현재 `src/store/data.ts`의 `MENU_ITEMS`/`ETC_ITEMS`를 대체.
 
 ```
 GET /api/stores/{store}/menu
@@ -177,7 +177,7 @@ POST /api/stores/{store}/orders
 
 ## 4. 데이터 모델 (프론트 → 백엔드 매핑)
 
-프론트 내부 타입 기준(실제 코드: `src/session.tsx`, `src/data.ts`).
+프론트 내부 타입 기준(실제 코드: `src/store/session.tsx`, `src/store/data.ts`).
 
 ```ts
 // URL에서 해석되는 세션
@@ -241,9 +241,9 @@ QR 스캔 → (?store=&togo) → 메뉴 화면 위에 [전화번호 입력 모�
 
 | 위치 | 현재 상태 | 연동 시 조치 |
 | --- | --- | --- |
-| `src/session.tsx` `STORE_NAMES` | 매장명 하드코딩(`eulji → 을지포차`) | 3.1 컨텍스트 API 응답으로 대체 |
-| `src/session.tsx` 기본값 | `store=eulji`, `table=2` 폴백 | 실서비스에선 유효하지 않은 QR을 에러 처리(무단 폴백 금지) |
-| `src/data.ts` | 메뉴/기타 항목 목업 | 3.2 메뉴 API로 대체, `image`→`imageUrl` |
+| `src/store/session.tsx` `STORE_NAMES` | 매장명 하드코딩(`eulji → 을지포차`) | 3.1 컨텍스트 API 응답으로 대체 |
+| `src/store/session.tsx` 기본값 | `store=eulji`, `table=2` 폴백 | 실서비스에선 유효하지 않은 QR을 에러 처리(무단 폴백 금지) |
+| `src/store/data.ts` | 메뉴/기타 항목 목업 | 3.2 메뉴 API로 대체, `image`→`imageUrl` |
 | `PayScreen` | PG 없는 결제 대기 화면 | 3.4 결제 연동 |
 | 0원(무료) 주문 | `handlePay`에 TODO 주석 | 무료 주문 완료 흐름 서버/화면 정의 |
 | 주문 상태 실시간 | 없음 | 필요 시 폴링/웹소켓/SSE 설계 |
