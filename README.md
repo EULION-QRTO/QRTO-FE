@@ -38,5 +38,6 @@ npm run preview
 
 ## 문서
 
+- [`DEV_GUIDE.md`](DEV_GUIDE.md) — 로컬 개발용 테스트 계정, 화면별 접속 경로, 고객용 QR 링크 얻는 법
 - [`API_SPEC.md`](API_SPEC.md), [`GEARING.md`](GEARING.md) — 고객용 주문 백엔드 연동 규약 (`src/store/`)
 - [`DESIGN.md`](DESIGN.md) — 점주용 POS 디자인 시스템 (`src/admin/`)
