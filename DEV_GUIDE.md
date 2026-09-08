@@ -16,6 +16,16 @@
 
 > 소스 기준: [`src/App.tsx`](src/App.tsx) 라우터. 코드 구조는 [`README.md`](README.md) 참고.
 
+### 운영 도메인 분기 (`pos.lapy.shop` / `order.lapy.shop`)
+
+두 도메인은 같은 빌드(같은 배포)를 공유하고, 접속한 **호스트네임**으로 프론트가 알아서 갈라진다 — 백엔드 재배포나 별도 빌드가 필요 없다.
+
+| 호스트 | 열리는 라우트 | 그 외 경로로 들어오면 |
+| --- | --- | --- |
+| `pos.lapy.shop` | POS/운영자만 (`/`, `/login`, `/store/:id`, `/operator*`) | `/order`, `/pickup` 등은 `/`(POS 홈)로 리다이렉트 |
+| `order.lapy.shop` | 고객용만 (`/order`, `/pickup`) | `/`, `/login` 등은 "QR 코드를 다시 스캔해 주세요" 안내 화면 (POS 로그인 화면이 노출되지 않음) |
+| 그 외 (localhost 등) | 위 표에 있는 모든 경로 | 위 표대로 (로컬 개발용, 기존과 동일) |
+
 ## 2. 테스트 계정
 
 ### 점주 POS 로그인 (`/login`)
