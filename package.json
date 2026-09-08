@@ -1,25 +1,18 @@
 {
-  "name": "qrto",
+  "name": "qrto-fe",
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "tsc -b && vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1"
-  },
-  "devDependencies": {
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@vitejs/plugin-react": "^4.3.4",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.17",
-    "typescript": "^5.6.3",
-    "vite": "^6.0.3"
+    "dev:store": "npm run dev --workspace apps/store",
+    "dev:admin": "npm run dev --workspace apps/admin",
+    "build:store": "npm run build --workspace apps/store",
+    "build:admin": "npm run build --workspace apps/admin",
+    "build": "npm run build:store && npm run build:admin",
+    "preview:store": "npm run preview --workspace apps/store",
+    "preview:admin": "npm run preview --workspace apps/admin"
   }
 }
