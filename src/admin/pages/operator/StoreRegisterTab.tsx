@@ -14,6 +14,7 @@ export default function StoreRegisterTab() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null);
   const [stores, setStores] = useState<ManagedStore[]>(() => getManagedStores());
@@ -23,27 +24,31 @@ export default function StoreRegisterTab() {
     name.trim() !== "" &&
     username.trim() !== "" &&
     password !== "" &&
-    password === password2;
+    password === password2 &&
+    adminPassword !== "";
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!valid || busy) return;
     setBusy(true);
     setResult(null);
-    const res = await createStore({
-      name: name.trim(),
-      org: org.trim() || undefined,
-      takeoutEnabled,
-      username: username.trim(),
-      password,
-    });
+    const res = await createStore(
+      {
+        name: name.trim(),
+        org: org.trim() || undefined,
+        takeoutEnabled,
+        username: username.trim(),
+        password,
+      },
+      adminPassword,
+    );
     setStores(getManagedStores());
     setResult(
       res.syncedToServer
         ? { ok: true, msg: `서버에 등록되었습니다 (매장 #${res.store.id}, 아이디 ${username.trim()}).` }
         : {
             ok: false,
-            msg: `로컬에만 저장되었습니다(아이디만 보관, 비밀번호 미저장). 서버 저장 실패: ${res.error ?? "API 미구현"}`,
+            msg: `로컬에만 저장되었습니다(아이디만 보관, 비밀번호 미저장). 서버 저장 실패: ${res.error ?? "알 수 없는 오류"}`,
           },
     );
     setName("");
@@ -68,8 +73,9 @@ export default function StoreRegisterTab() {
 
       <div className="op__notice op__notice--pending">
         ⓘ 운영자가 주점 <strong>로그인 아이디·비밀번호를 사전 설정</strong>합니다. 매장은 로컬에
-        즉시 저장되고, 서버 생성 API(<code>POST /api/stores</code>)가 준비되면 자격증명과 함께 서버에
-        저장됩니다(비밀번호는 서버 전송용으로만 쓰고 <strong>로컬에는 저장하지 않음</strong>).
+        즉시 저장되고, <strong>총관리자 비밀번호</strong>가 맞으면 서버(<code>POST /api/stores</code>)에도
+        저장됩니다(포스 로그인 비밀번호·총관리자 비밀번호 모두 서버 전송용으로만 쓰고{" "}
+        <strong>로컬에는 저장하지 않음</strong>).
       </div>
 
       <form className="op-form" onSubmit={submit}>
@@ -130,6 +136,17 @@ export default function StoreRegisterTab() {
             onChange={(e) => setTakeoutEnabled(e.target.checked)}
           />
           <span>포장(TOGO) 주문 사용</span>
+        </label>
+        <label className="op-form__field">
+          <span className="op-form__label">총관리자 비밀번호</span>
+          <input
+            className="field"
+            type="password"
+            autoComplete="off"
+            placeholder="서버에 저장하려면 필요 (X-Admin-Password)"
+            value={adminPassword}
+            onChange={(e) => setAdminPassword(e.target.value)}
+          />
         </label>
         <button className="btn btn--primary" type="submit" disabled={!valid || busy}>
           {busy ? "등록 중…" : "등록"}

@@ -27,8 +27,12 @@ export const menuBoard = (storeId: number) =>
 export const createOrder = (req: CreateOrderRequest) =>
   http.post<OrderResponse>('/api/orders', { body: req })
 
-/** 주문 단건 */
-export const getOrder = (orderId: number) => http.get<OrderResponse>(`/api/orders/${orderId}`)
+/**
+ * 주문 단건. `token`은 소유 증명 — DINE_IN이면 테이블 qrToken, TAKEOUT이면 매장 pickupToken을
+ * 주문 생성 때 쓴 값 그대로 넘긴다(필수 쿼리, 없으면 400 C002).
+ */
+export const getOrder = (orderId: number, token: string) =>
+  http.get<OrderResponse>(`/api/orders/${orderId}`, { query: { token } })
 
 /** 테이블 주문 내역 (최신순) */
 export const ordersByTable = (qrToken: string) =>
@@ -38,9 +42,9 @@ export const ordersByTable = (qrToken: string) =>
 export const ordersByPhone = (pickupToken: string, phoneNumber: string) =>
   http.get<OrderResponse[]>('/api/orders/by-phone', { query: { pickupToken, phoneNumber } })
 
-/** 주문 취소 (결제대기 상태에서만) */
-export const cancelOrder = (orderId: number) =>
-  http.patch<OrderResponse>(`/api/orders/${orderId}/cancel`)
+/** 주문 취소 (결제대기 상태에서만). `token`은 getOrder와 동일한 소유 증명(필수 쿼리). */
+export const cancelOrder = (orderId: number, token: string) =>
+  http.patch<OrderResponse>(`/api/orders/${orderId}/cancel`, { query: { token } })
 
 /** 결제창 설정 */
 export const paymentConfig = () => http.get<PaymentConfigResponse>('/api/payments/config')

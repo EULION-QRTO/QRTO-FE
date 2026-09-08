@@ -24,21 +24,48 @@ export interface LoginResponse {
 }
 
 /* ── 매장 ── */
-/** 매장 생성 요청 (운영자). 백엔드 POST /api/stores 구현 예정. */
+/**
+ * 매장 생성 요청 (총관리자). POST /api/stores — 헤더 X-Admin-Password 필요(storeAdminApi.create).
+ * `org`는 백엔드 필드가 아니라 프론트 로컬 메타데이터(ManagedStore)에만 쓰인다 — 서버에 보내지 않는다.
+ */
 export interface CreateStoreRequest {
+  /** 매장명 (길이 0~100) */
   name: string;
-  /** 운영단체 (백엔드 필드 추가 예정) */
-  org?: string;
-  takeoutEnabled?: boolean;
-  /** 운영자가 사전 설정하는 주점 로그인 자격증명 (서버가 계정 생성/해시) */
+  /** 포스 로그인 아이디 (전체 매장에서 유일, 길이 0~50) */
   username: string;
+  /** 포스 로그인 비밀번호 */
   password: string;
+  /** 로고 이미지 URL (길이 0~500) */
+  logoUrl?: string;
+  /** 포장(픽업) 운영 여부 */
+  takeoutEnabled?: boolean;
+  /** 테이블 개수(표시용 — 실제 테이블 행은 생성하지 않음) */
+  tableCount?: number;
+  /** 정산 은행명 (길이 0~50) */
+  bankName?: string;
+  /** 정산 계좌번호 (길이 0~50) */
+  accountNumber?: string;
+  /** 예금주 (길이 0~50) */
+  accountHolder?: string;
 }
+
+/** GET /api/stores — 공개 요약 목록 (정산계좌·pickupToken 등 민감정보 없음) */
+export interface StoreSummaryResponse {
+  id: number;
+  name: string;
+  logoUrl: string | null;
+  takeoutEnabled: boolean;
+  open: boolean;
+  tableCount: number;
+}
+
 export interface StoreResponse {
   id: number;
   name: string;
   logoUrl: string | null;
   takeoutEnabled: boolean;
+  /** 영업 중 여부 — PATCH /api/stores/{storeId}/open 으로 변경 */
+  open: boolean;
   tableCount: number;
   bankName: string | null;
   accountNumber: string | null;
@@ -57,6 +84,22 @@ export interface UpdateStoreRequest {
   bankName?: string;
   accountNumber?: string;
   accountHolder?: string;
+}
+
+/** PATCH /api/stores/{storeId}/open */
+export interface StoreOpenRequest {
+  open: boolean;
+}
+
+/** PATCH /api/admin/stores/open — 총관리자 전체 매장 일괄 토글 */
+export interface AdminStoresOpenRequest {
+  /** 총관리자 비밀번호 (설정값 qrto.admin.password) */
+  password: string;
+  open: boolean;
+}
+export interface AdminStoresOpenResponse {
+  open: boolean;
+  updatedCount: number;
 }
 
 /* ── 카테고리 ── */
@@ -132,6 +175,9 @@ export interface TableStatusResponse {
   staffCallActive: boolean;
 }
 
+/** PUT /api/stores/{storeId}/tables/bulk — 응답 data 는 갱신된 테이블 배열 그 자체 */
+export type TableBulkResponse = TableResponse[];
+
 /** POST .../tables/{tableId}/clear */
 export interface ClearTableResponse {
   tableId: number;
@@ -165,6 +211,8 @@ export interface OrderResponse {
   orderType: OrderType;
   orderTypeLabel: string;
   tableId: number | null;
+  /** 테이블명 스냅샷 — 테이블이 삭제돼도 과거 주문엔 남는다 */
+  tableName?: string | null;
   phoneNumber: string | null;
   pickupNo: string | number | null;
   status: OrderStatus;
@@ -196,6 +244,8 @@ export interface SalesSummaryResponse {
   takeoutOrderCount: number;
   avgOrderPrice: number;
   canceledCount: number;
+  /** date와 무관한 개장 이후 전체 누적 매출 */
+  cumulativeSales: number;
 }
 
 /* ── 실시간(STOMP) 이벤트 ── */

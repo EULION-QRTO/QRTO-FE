@@ -1,8 +1,8 @@
 /**
  * 매장 레지스트리 — 로컬 우선 + 서버 동기화.
  *
- * 백엔드 매장 생성/목록 API(POST/GET /api/stores)가 아직 없어도 로컬(localStorage)에
- * 저장돼 즉시 동작하고, 서버 API 가 배포되면 자동으로 서버에 저장/로드된다.
+ * 서버 저장(POST /api/stores)은 총관리자 비밀번호(X-Admin-Password)가 필요하다.
+ * 항상 로컬(localStorage)에 먼저 저장해 즉시 동작하고, 서버 저장은 비밀번호가 맞을 때만 성공한다.
  * (try 서버 → 실패 시 로컬 폴백)
  */
 import { storeAdminApi } from "./endpoints";
@@ -31,8 +31,13 @@ export interface CreateStoreResult {
 /**
  * 매장 생성. 로컬에 먼저 저장하고, 서버 저장을 시도한다.
  * 서버 성공 시 로컬 임시 id 를 서버 id 로 교체하고 synced=true 로 표시.
+ *
+ * @param adminPassword 총관리자 비밀번호 — 서버 X-Admin-Password 헤더로 전송(로컬엔 저장 안 함).
  */
-export async function createStore(input: CreateStoreInput): Promise<CreateStoreResult> {
+export async function createStore(
+  input: CreateStoreInput,
+  adminPassword: string,
+): Promise<CreateStoreResult> {
   const tempId = `local-${Date.now()}`;
   // 비밀번호는 로컬에 저장하지 않는다(서버 전송용으로만 사용).
   const draft: ManagedStore = {
@@ -46,15 +51,17 @@ export async function createStore(input: CreateStoreInput): Promise<CreateStoreR
   // 1) 로컬 우선 저장
   setManagedStores([...getManagedStores(), draft]);
 
-  // 2) 서버 저장 시도 (자격증명 포함 → 서버가 계정 생성/해시)
+  // 2) 서버 저장 시도 (자격증명 포함 → 서버가 계정 생성/해시). `org`는 백엔드 필드가 아니라 보내지 않는다.
   try {
-    const created = await storeAdminApi.create({
-      name: input.name,
-      org: input.org,
-      takeoutEnabled: input.takeoutEnabled,
-      username: input.username,
-      password: input.password,
-    });
+    const created = await storeAdminApi.create(
+      {
+        name: input.name,
+        takeoutEnabled: input.takeoutEnabled,
+        username: input.username,
+        password: input.password,
+      },
+      adminPassword,
+    );
     const synced: ManagedStore = {
       id: String(created.id),
       name: created.name ?? input.name,

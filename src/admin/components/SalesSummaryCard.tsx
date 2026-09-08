@@ -30,6 +30,7 @@ const toRows = (s: SalesSummaryResponse): (string | number)[][] => [
   ["포장 주문 건수", s.takeoutOrderCount],
   ["평균 객단가", s.avgOrderPrice],
   ["취소 건수", s.canceledCount],
+  ["누적 매출(개장 이후 전체)", s.cumulativeSales],
 ];
 
 /** 브라우저 다운로드 트리거 */
@@ -159,6 +160,10 @@ export default function SalesSummaryCard({ storeId }: Props) {
             <div className="admin__stat">
               <div className="admin__stat-label">취소 건수</div>
               <div className="admin__stat-value">{summary.canceledCount.toLocaleString("ko-KR")}건</div>
+            </div>
+            <div className="admin__stat">
+              <div className="admin__stat-label">누적 매출 (개장 이후)</div>
+              <div className="admin__stat-value">{formatKRW(summary.cumulativeSales)}</div>
             </div>
           </div>
 
