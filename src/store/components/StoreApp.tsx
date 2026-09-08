@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Product, type TabKey, splitMenuBoard } from '../data'
 import { useSession } from '../session'
 import { ApiError } from '../lib/api'
@@ -37,12 +37,6 @@ export default function StoreApp() {
   const [order, setOrder] = useState<OrderResponse | null>(null)
   const [placing, setPlacing] = useState(false)
 
-  // [데모] 결제대기 진입 시 자동 결제완료를 주문당 1회만 실행하기 위한 가드.
-  const autoConfirmedRef = useRef(false)
-
-  // 포장(togo) 주문은 전화번호를 먼저 입력해야 한다. (여러 화면 가드에서 사용)
-  const phoneGate = session.mode === 'togo' && !phone
-
   // 주문내역
   const [history, setHistory] = useState<OrderResponse[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
@@ -71,7 +65,6 @@ export default function StoreApp() {
       alive = false
     }
   }, [session.storeId, flash])
-
 
   const allItems = useMemo(() => (menu ? [...menu.menu, ...menu.etc] : []), [menu])
   const priceById = useMemo(() => {
@@ -137,8 +130,6 @@ export default function StoreApp() {
         setQuantities({})
         setView('done')
       } else {
-        // 결제대기 — 진입 후 자동 결제완료(아래 effect)
-        autoConfirmedRef.current = false // 새 주문 → 자동 결제완료 재무장
         setView('pay')
       }
     } catch (e) {
@@ -148,8 +139,8 @@ export default function StoreApp() {
     }
   }
 
-  // 결제 승인 — /api/payments/confirm (mock: orderId+amount 만으로 즉시 확정)
-  const confirm = useCallback(async () => {
+  // 결제 승인 (mock)
+  const confirm = async () => {
     if (!order || placing) return
     setPlacing(true)
     try {
@@ -162,16 +153,7 @@ export default function StoreApp() {
     } finally {
       setPlacing(false)
     }
-  }, [order, placing, flash])
-
-  // [데모] 결제대기 진입 시 자동 결제완료 (주문당 1회). 포장은 전화번호 입력 후 실행.
-  useEffect(() => {
-    if (view !== 'pay' || phoneGate) return
-    if (!order || placing) return
-    if (autoConfirmedRef.current) return
-    autoConfirmedRef.current = true
-    void confirm()
-  }, [view, phoneGate, order, placing, confirm])
+  }
 
   const staffCall = async () => {
     if (session.mode !== 'table') return
@@ -187,6 +169,9 @@ export default function StoreApp() {
     if (!hasSelection) return
     void placeOrder()
   }
+
+  // 포장(togo) 주문은 전화번호를 먼저 입력해야 한다.
+  const phoneGate = session.mode === 'togo' && !phone
 
   const noticeBar = notice ? (
     <div className="pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom)+96px)] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-[16px] bg-[rgba(28,28,28,0.9)] px-[18px] py-[10px] text-[13px] font-semibold text-white">
