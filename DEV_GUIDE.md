@@ -64,9 +64,15 @@ docker compose up -d        # MySQL (localhost:3310)
 ./gradlew bootRun            # http://localhost:8080
 ```
 
-- 프론트가 기본으로 바라보는 백엔드 주소는 `http://localhost:8080` (`VITE_API_BASE_URL` 환경변수로 덮어쓸 수 있음, 운영자 웹소켓은 `VITE_WS_BASE_URL`)
+- 로컬 개발(`npm run dev`)이 기본으로 바라보는 백엔드 주소는 `http://localhost:8080` — `VITE_API_BASE_URL` 환경변수로 덮어쓸 수 있음(운영자 웹소켓은 `VITE_WS_BASE_URL`, 안 주면 `API_BASE_URL`에서 http(s)→ws(s) 치환 + `/ws`로 자동 계산됨)
 - 백엔드의 `qrto.front-base-url` 설정값이 `http://localhost:5173`로 맞춰져 있어야 QR 인쇄 탭에서 나오는 링크가 우리 프론트를 가리킨다 (기본값이 이미 이렇게 되어 있음)
 - 결제는 기본 `mock` 모드라 토스 결제창 없이 자동 완료 처리된다
+
+### 운영 배포 시 백엔드 주소
+
+`npm run build`(vite 기본 production 모드)는 [`.env.production`](.env.production)을 읽어 `VITE_API_BASE_URL`을 빌드 시점에 번들에 박아 넣는다 — **이 파일이 없으면 로컬 기본값(`http://localhost:8080`)이 그대로 배포되어 pos.lapy.shop/order.lapy.shop에서 로그인·API 호출이 전부 실패한다** (실제로 이 파일이 없어서 겪은 문제).
+
+QRTO API 명세서 기준 운영 백엔드는 도메인 하나(`https://api.lapy.shop`)이고, `order.lapy.shop`·`pos.lapy.shop` 둘 다 이 도메인을 크로스 오리진으로 호출한다(그래서 백엔드 CORS 허용 오리진에 두 도메인이 모두 등록돼 있다). `.env.production`에 이미 반영돼 있다.
 
 ## 5. 참고 문서
 - [`GEARING.md`](GEARING.md), [`API_SPEC.md`](API_SPEC.md) — 고객용 주문 흐름·API 상세
