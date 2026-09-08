@@ -1,8 +1,8 @@
 # QRTO API 명세서
 
 QRTO(QR 주문) 프론트엔드가 백엔드와 연동하기 위해 필요한 REST API 명세서다.
-프론트엔드 코드(`src/`)의 동작을 근거로, 현재 목업(`src/data.ts`)으로 처리되는 부분과
-QR URL 세션 해석(`src/session.tsx`), 화면 흐름(`src/components/*`)에서 도출되는
+프론트엔드 코드(`src/store/`)의 동작을 근거로, 현재 목업(`src/store/data.ts`)으로 처리되는 부분과
+QR URL 세션 해석(`src/store/session.tsx`), 화면 흐름(`src/store/components/*`)에서 도출되는
 모든 연동 지점을 API로 정리했다.
 
 > 관련 배경 문서: [`GEARING.md`](./GEARING.md) — QR URL 스킴/개인정보 정책/보안 고려사항.
@@ -73,7 +73,7 @@ https://api.qrto.example.com
 
 ## 2. 데이터 모델
 
-프론트 내부 타입(`src/data.ts`, `src/session.tsx`) 기준으로 매핑한다.
+프론트 내부 타입(`src/store/data.ts`, `src/store/session.tsx`) 기준으로 매핑한다.
 
 ### Store (매장)
 
@@ -218,7 +218,7 @@ GET /api/stores/eulji/context?mode=togo
 
 ## 5. 메뉴 조회
 
-`src/data.ts`의 `MENU_ITEMS`/`ETC_ITEMS` 목업을 대체한다. `OrderScreen`이 탭별로 렌더링한다.
+`src/store/data.ts`의 `MENU_ITEMS`/`ETC_ITEMS` 목업을 대체한다. `OrderScreen`이 탭별로 렌더링한다.
 
 ### 요청
 
@@ -561,10 +561,10 @@ POST /api/stores/{storeId}/staff-calls
 
 | 프론트 위치 | 현재 상태 | 대체 API |
 | --- | --- | --- |
-| `src/session.tsx` `STORE_NAMES` | 매장명 하드코딩(`eulji → 을지포차`) | [4. 컨텍스트](#4-매장-컨텍스트-조회) `storeName` |
-| `src/session.tsx` 기본값 폴백 | `store=eulji`, `table=2` | [4. 컨텍스트](#4-매장-컨텍스트-조회) 검증 후 무효 시 에러 |
-| `src/data.ts` `MENU_ITEMS`/`ETC_ITEMS` | 상품 목업 | [5. 메뉴](#5-메뉴-조회) |
-| `src/data.ts` `Product.image` | 로컬 import | 메뉴 응답 `imageUrl` |
+| `src/store/session.tsx` `STORE_NAMES` | 매장명 하드코딩(`eulji → 을지포차`) | [4. 컨텍스트](#4-매장-컨텍스트-조회) `storeName` |
+| `src/store/session.tsx` 기본값 폴백 | `store=eulji`, `table=2` | [4. 컨텍스트](#4-매장-컨텍스트-조회) 검증 후 무효 시 에러 |
+| `src/store/data.ts` `MENU_ITEMS`/`ETC_ITEMS` | 상품 목업 | [5. 메뉴](#5-메뉴-조회) |
+| `src/store/data.ts` `Product.image` | 로컬 import | 메뉴 응답 `imageUrl` |
 | `CartScreen` → `handlePay` | 결제 화면 이동만 | [6. 주문 생성](#6-주문-생성) + [8. 결제](#8-결제) |
 | `PayScreen` `onComplete` | 빈 콜백 | [8.1 결제 완료](#81-결제-완료-처리) |
 | `HistoryScreen` | 빈 상태("주문내역이 없어요") | [7. 주문 내역](#7-주문-내역-조회) |
