@@ -30,6 +30,8 @@ interface RequestOptions {
   form?: FormData;
   /** 인증 헤더 부착 여부 (기본 true) */
   auth?: boolean;
+  /** 추가 헤더 (예: 총관리자 API 의 X-Admin-Password) */
+  headers?: Record<string, string>;
   signal?: AbortSignal;
   /** 요청 타임아웃(ms). 초과 시 ApiError("TIMEOUT") throw. 기본 15000. */
   timeout?: number;
@@ -50,8 +52,8 @@ async function request<T>(
   path: string,
   opts: RequestOptions = {},
 ): Promise<T> {
-  const { query, body, form, auth = true, signal, timeout = 15000 } = opts;
-  const headers: Record<string, string> = {};
+  const { query, body, form, auth = true, headers: extraHeaders, signal, timeout = 15000 } = opts;
+  const headers: Record<string, string> = { ...extraHeaders };
 
   if (auth) {
     const token = getToken();
@@ -130,6 +132,19 @@ export async function fetchImageObjectUrl(path: string): Promise<string> {
   if (!res.ok) throw new ApiError(String(res.status), "이미지 요청 실패", res.status);
   const blob = await res.blob();
   return URL.createObjectURL(blob);
+}
+
+/** 바이너리(CSV 등) 응답 → Blob. envelope 로 감싸지 않는 엔드포인트 전용. */
+export async function fetchBlob(
+  path: string,
+  query?: RequestOptions["query"],
+): Promise<Blob> {
+  const token = getToken();
+  const res = await fetch(buildUrl(path, query), {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) throw new ApiError(String(res.status), "파일 요청 실패", res.status);
+  return res.blob();
 }
 
 export const http = {

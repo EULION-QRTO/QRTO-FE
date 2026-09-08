@@ -54,6 +54,8 @@ export default function PosApp({ storeId, storeName }: Props) {
   const [account, setAccount] = useState<SettlementAccount>({ bank: "", number: "", holder: "" });
   const [tableCount, setTableCountState] = useState<number>(0);
   const [sales, setSales] = useState<SalesSummaryResponse | null>(null);
+  /** 영업 중 여부. undefined = 아직 로드 전(토글 숨김). */
+  const [open, setOpen] = useState<boolean | undefined>(undefined);
 
   const [selected, setSelected] = useState<Table | null>(null);
   const [now, setNow] = useState<number>(() => Date.now());
@@ -141,6 +143,7 @@ export default function PosApp({ storeId, storeName }: Props) {
         setWaiting(orders.filter(isActiveWaiting).map((o) => toWaitingOrder(o, numMap)));
         setAccount(toSettlementAccount(store));
         setTableCountState(store.tableCount);
+        setOpen(store.open);
         setSales(summary);
       } catch (e) {
         if (alive) handleError(e, "데이터를 불러오지 못했습니다. 서버 연결을 확인해 주세요.");
@@ -232,10 +235,8 @@ export default function PosApp({ storeId, storeName }: Props) {
    */
   const setTableCount = async (count: number) => {
     try {
-      const result = await tableApi.bulk(storeId, count);
-      // 응답에 tableCount 가 없을 수 있으니 tables 길이 → 요청값 순으로 폴백
-      const next = result?.tableCount ?? result?.tables?.length ?? count;
-      setTableCountState(next);
+      const tables = await tableApi.bulk(storeId, count);
+      setTableCountState(tables.length);
       await reloadTablesAndOrders();
     } catch (e) {
       handleError(e, "테이블 개수를 변경하지 못했습니다.");
@@ -320,6 +321,18 @@ export default function PosApp({ storeId, storeName }: Props) {
     }
   };
 
+  /** 영업 시작/종료 토글 (PATCH .../stores/{id}/open). 종료하면 손님 QR 진입·주문·직원호출이 막힌다. */
+  const toggleOpen = async () => {
+    if (open === undefined) return;
+    const next = !open;
+    try {
+      const store = await storeApi.setOpen(storeId, { open: next });
+      setOpen(store.open);
+    } catch (e) {
+      handleError(e, "영업 상태를 변경하지 못했습니다.");
+    }
+  };
+
   const refresh = () => {
     setNow(Date.now());
     void reloadTablesAndOrders();
@@ -344,6 +357,8 @@ export default function PosApp({ storeId, storeName }: Props) {
         onTabChange={setTab}
         onRefresh={refresh}
         onLogout={logout}
+        open={open}
+        onToggleOpen={toggleOpen}
       />
 
       {notice && <div className="app__notice">{notice}</div>}

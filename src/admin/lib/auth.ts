@@ -25,8 +25,10 @@ function toSession(res: { accessToken: string; expiresIn: number; storeId: numbe
 /**
  * 로그인 시도.
  * - 성공: 세션 저장 후 반환
- * - 자격증명 오류(400/401): null 반환 (LoginPage 가 "아이디/비밀번호 오류" 표시)
- * - 그 외(네트워크/타임아웃/5xx): ApiError 를 그대로 throw (LoginPage 가 연결 오류 표시)
+ * - 자격증명 오류(401 A001, 아이디 없음·비번 틀림 구분 없이 동일): null 반환
+ *   (LoginPage 가 "아이디/비밀번호 오류" 표시 — 계정 열거 방지를 위해 서버도 구분하지 않는다)
+ * - 그 외(400 C002 검증 실패 · 429 A006 과다 시도 · 네트워크/타임아웃/5xx):
+ *   ApiError 를 그대로 throw — LoginPage 가 서버가 내려준 message 를 그대로 보여준다.
  */
 export async function login(username: string, password: string): Promise<Session | null> {
   try {
@@ -35,16 +37,17 @@ export async function login(username: string, password: string): Promise<Session
     saveSession(session);
     return session;
   } catch (e) {
-    // 실제 자격증명 실패만 null. 네트워크/타임아웃/서버오류는 상위에서 구분해 안내한다.
-    if (e instanceof ApiError && (e.status === 400 || e.status === 401)) return null;
+    if (e instanceof ApiError && e.code === "A001") return null;
     throw e;
   }
 }
 
 /** 현재 토큰 유효성 확인 + 매장정보 갱신. 실패 시 세션 제거 후 null */
 export async function refreshMe(): Promise<Session | null> {
+  const current = getSession();
+  if (!current) return null;
   try {
-    const res = await authApi.me();
+    const res = await authApi.me(current.storeId);
     const session = toSession(res);
     saveSession(session);
     return session;
