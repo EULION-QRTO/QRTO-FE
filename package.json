@@ -1,0 +1,18 @@
+{
+  "name": "qrto-fe",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:store": "npm run dev --workspace apps/store",
+    "dev:admin": "npm run dev --workspace apps/admin",
+    "build:store": "npm run build --workspace apps/store",
+    "build:admin": "npm run build --workspace apps/admin",
+    "build": "npm run build:store && npm run build:admin",
+    "preview:store": "npm run preview --workspace apps/store",
+    "preview:admin": "npm run preview --workspace apps/admin"
+  }
+}
