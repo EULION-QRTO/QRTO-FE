@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Product, type TabKey, splitMenuBoard } from '../data'
-import { useSession } from '../session'
+import { useSession, entryToken } from '../session'
 import { ApiError } from '../lib/api'
 import {
   menuBoard,
@@ -9,7 +9,9 @@ import {
   callStaff,
   ordersByTable,
   ordersByPhone,
+  cancelOrder,
 } from '../lib/endpoints'
+import { subscribeOrderStatus } from '../lib/realtime'
 import type { OrderResponse } from '../lib/dto'
 import OrderScreen from './OrderScreen'
 import CartScreen from './CartScreen'
@@ -47,11 +49,13 @@ export default function StoreApp() {
     setTimeout(() => setNotice(null), 2500)
   }, [])
 
+  const token = entryToken(session)
+
   // 메뉴판 로드
   useEffect(() => {
     let alive = true
     setMenuLoading(true)
-    menuBoard(session.storeId)
+    menuBoard(token)
       .then((board) => {
         if (alive) setMenu(splitMenuBoard(board))
       })
@@ -64,7 +68,17 @@ export default function StoreApp() {
     return () => {
       alive = false
     }
-  }, [session.storeId, flash])
+  }, [token, flash])
+
+  // 결제대기 중인 주문의 실시간 상태 구독 — 결제 확정(RECEIVED) → 조리중 → 완료 → 서빙/픽업,
+  // 취소·청산까지 전부 STATUS_CHANGED 로 온다. order.status/statusLabel 을 그대로 갱신한다.
+  useEffect(() => {
+    if (!order) return
+    const unsubscribe = subscribeOrderStatus(token, order.id, (updated) => {
+      setOrder(updated)
+    })
+    return unsubscribe
+  }, [order?.id, token])
 
   const allItems = useMemo(() => (menu ? [...menu.menu, ...menu.etc] : []), [menu])
   const priceById = useMemo(() => {
@@ -170,6 +184,14 @@ export default function StoreApp() {
     void placeOrder()
   }
 
+  // 결제대기 화면에서 뒤로 가기 — 서버에 남는 결제대기 주문을 실제로 취소한다(PENDING_PAYMENT 에서만 가능).
+  // 실패해도(이미 결제 확정 등) 어차피 화면은 장바구니로 돌아간다 — 손님이 다시 시도할 수 있게.
+  const backFromPay = () => {
+    if (order) void cancelOrder(order.id, token).catch(() => {})
+    setOrder(null)
+    setView('cart')
+  }
+
   // 포장(togo) 주문은 전화번호를 먼저 입력해야 한다.
   const phoneGate = session.mode === 'togo' && !phone
 
@@ -210,7 +232,7 @@ export default function StoreApp() {
         <PayScreen
           amount={order?.totalPrice ?? total}
           placing={placing}
-          onBack={() => setView('cart')}
+          onBack={backFromPay}
           onComplete={confirm}
           onOpenHistory={openHistory}
         />
