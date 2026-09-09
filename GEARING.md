@@ -1,275 +1,56 @@
-# GEARING.md — 백엔드 연동 정리
+# GEARING.md — QR 진입 · 세션 규약
 
-QRTO 프론트엔드가 QR 스캔 URL을 해석해 **테이블 주문 / 포장(픽업, togo) 주문**을 구분하는 방식과,
-그로 인해 백엔드와 맞춰야 하는 규약·API·데이터 모델을 정리한 문서다.
+손님용 주문 앱이 QR 스캔 URL을 해석해 **테이블 주문 / 포장(픽업) 주문**을 구분하는 방식을 정리한다.
 
-> 현재 프론트엔드는 메뉴/주문 데이터를 `src/data.ts`의 목업으로 렌더링하며, 실제 API 연동은 아직 없다.
-> 이 문서의 "필요" 항목은 실 연동 시 백엔드가 제공/검증해야 하는 지점을 뜻한다.
+> ⚠️ 이 문서의 이전 버전은 백엔드 구현 전 `?store=&table=` 쿼리 파라미터 방식으로 설계를 제안했던
+> 문서였다 — 실제로 구현된 방식과 다르다. 아래는 현재 코드([`src/session.tsx`](src/session.tsx))
+> 기준 실제 동작이다. API 상세는 [`API_SPEC.md`](API_SPEC.md)와 Notion "QRTO API 명세서 (v2)" 참고.
 
----
+## QR URL 스킴
 
-## 1. 핵심 개념
+경로(path)로 주문 방식을, `?token=`으로 매장/테이블(또는 매장 픽업)을 식별한다 — 쿼리 파라미터로
+매장을 지정하던 옛 방식과 달리, 토큰 자체가 매장·테이블을 가리키므로 별도 매장 식별자가 없다.
 
-- **매장(store)** — 어느 가게인지. QR URL에 `store` 식별자로 박혀 있다.
-- **주문 방식(mode)** — `table`(정해진 테이블) 또는 `togo`(포장·픽업) 두 가지.
-- **테이블 주문** — QR에 테이블 번호가 고정되어 있다. 손님 입력 없이 바로 메뉴로 진입.
-- **포장(togo) 주문** — 테이블이 없다. 손님이 **전화번호**를 입력하고, 그 **뒷 4자리**로 주문을 구분/픽업한다.
-
-관련 프론트 코드: `src/session.tsx` (URL 파싱 + 전역 세션), `src/components/PhoneEntryModal.tsx` (전화번호 입력 모달).
-
----
-
-## 2. URL 정책 (QR 코드 스킴)
-
-QR 코드에 인코딩되는 URL은 **쿼리 파라미터**로 매장·주문 방식을 전달한다.
-(정적 호스팅에서도 서버 리라이트 없이 안전하게 동작하도록 path가 아닌 query를 채택)
-
-| 주문 방식 | URL 예시 | 의미 |
+| 주문 방식 | URL | 백엔드 호출 |
 | --- | --- | --- |
-| 테이블 | `https://order.example.com/?store=eulji&table=2` | `eulji` 매장의 2번 테이블 |
-| 포장(초기·QR) | `https://order.example.com/?store=eulji&togo` | `eulji` 매장 포장 주문, **전화번호 입력 전** |
-| 포장(입력 후) | `https://order.example.com/?store=eulji&togo=5678` | 포장 주문, 전화번호 뒷 4자리 = `5678` |
+| 테이블(DINE_IN) | `https://lapy.shop/order?token={qrToken}` | `GET /api/customer/entry/table/{qrToken}` |
+| 포장(TAKEOUT) | `https://lapy.shop/pickup?token={pickupToken}` | `GET /api/customer/entry/pickup/{pickupToken}` |
 
-`table`은 QR 인쇄 시 고정값이고, `togo`의 뒷자리는 **손님이 입력한 뒤** 프론트가 URL에 채운다.
-따라서 `table=4`와 `togo=5678`은 표기상 대칭이지만 값이 정해지는 시점이 다르다.
+`token`이 없거나 진입 조회가 실패하면(유효하지 않은 QR, 영업 종료 등) "QR 코드를 다시 스캔해 주세요"
+안내 화면을 보여준다 (`session.tsx`의 `parseEntry`/`SessionProvider`).
 
-- **QR에 인쇄되는 값**: 포장은 항상 값 없는 `?...&togo` (손님마다 번호가 달라 미리 박을 수 없음).
-- **입력 완료 후**: 프론트가 `history.replaceState`로 `?...&togo=5678`(뒷 4자리)로 갱신 → 새로고침/재진입 시 복원.
-
-### 파라미터 규격
-
-| 파라미터 | 필수 | 값 | 설명 |
-| --- | --- | --- | --- |
-| `store` | 권장 | 매장 식별자 문자열 | 없으면 프론트 기본값(`eulji`)으로 폴백 |
-| `table` | 테이블 주문 시 | 양의 정수 | 테이블 번호. 파싱 실패 시 기본값(`2`)으로 폴백 |
-| `togo` / `mode=togo` | 포장 주문 시 | 플래그 또는 뒷 4자리(`5678`) | 존재하면 포장 주문. 값이 있으면 입력 완료 상태의 뒷자리 |
-
-### 판정 우선순위 (현재 프론트 로직)
-
-1. `togo`(값 유무 무관) 또는 `mode=togo` 가 있으면 → **포장 주문** (`table` 무시)
-2. 그 외에는 → **테이블 주문** (`table` 값 사용, 없으면 기본값)
-3. 포장이고 `togo=5678`처럼 값이 있으면 → 뒷자리로 인식(라벨/복원용). **전체 번호**는 아래 참조.
-
-### 전화번호 상태 보존 (URL vs sessionStorage)
-
-개인정보 정책상 **URL에는 뒷 4자리만** 남기고, 백엔드 주문에 필요한 **전체 번호는 `sessionStorage`에만** 보관한다.
-
-- 저장 키: `qrto:togo:phone:{storeId}` → 값: 전체 번호(예: `01012345678`)
-- **새로고침/재진입**: URL의 `togo=5678`과 `sessionStorage`의 전체 번호 뒷자리가 일치하면 복원(모달 스킵).
-- **다른 기기·프라이빗 모드 등으로 전체 번호가 없을 때**: 백엔드가 전체 번호를 요구하므로 **모달을 다시 띄워 재입력**받는다.
-  (URL 뒷자리만으로는 주문을 생성하지 않는다.)
-
-관련 프론트 코드: `parseTogoLast4()`, `readStoredPhone()`, `SessionProvider.setPhone()` (`src/session.tsx`).
-
-### QR 발급 관점 — 백엔드가 정해야 할 것
-
-- **매장 식별자 체계**: `store` 값에 무엇을 넣을지. (사람이 읽는 slug `eulji` vs 불투명 ID/UUID)
-  - 권장: 추측·위조가 어렵도록 **불투명 토큰**을 사용. slug는 노출/도용 위험.
-- **QR 물량**: 테이블은 테이블 수만큼 개별 QR, 포장은 매장당 1개(또는 카운터별) QR.
-- **도메인/베이스 URL**: 프론트 배포 도메인 확정 후 QR 일괄 생성.
-
-> ⚠️ 현재 프론트는 `store`, `table`을 **검증 없이 신뢰**한다. 실 서비스에서는 백엔드가 매장/테이블 존재 여부와
-> 영업 여부를 검증해야 한다. (아래 3.API 및 8.보안 참조)
-
----
-
-## 3. 백엔드 연동 지점 (필요한 API)
-
-현재 목업으로 처리되는 부분을 실제 API로 대체할 때 필요한 엔드포인트. (경로/스키마는 제안값)
-
-### 3.1 세션/컨텍스트 검증 — **신규 필요**
-
-QR 진입 직후, URL 파라미터가 유효한지 확인한다.
-
-```
-GET /api/stores/{store}/context?table=2
-GET /api/stores/{store}/context?mode=togo
-```
-
-응답 예시:
-```json
-{
-  "storeId": "eulji",
-  "storeName": "을지포차",
-  "mode": "table",          // "table" | "togo"
-  "tableNumber": 2,          // table 모드에서만
-  "open": true,              // 영업 중 여부
-  "acceptingOrders": true
-}
-```
-
-- 프론트의 하드코딩 매장명(`STORE_NAMES`)을 이 응답의 `storeName`으로 대체.
-- `open`/`acceptingOrders`가 false면 주문 차단 화면 노출(현재 미구현).
-
-### 3.2 메뉴 조회 — **신규 필요**
-
-현재 `src/data.ts`의 `MENU_ITEMS`/`ETC_ITEMS`를 대체.
-
-```
-GET /api/stores/{store}/menu
-```
-
-```json
-{
-  "tabs": [
-    { "key": "menu", "label": "메뉴", "items": [
-      { "id": "m1", "name": "소세지 야채볶음", "price": 8500,
-        "description": "…", "imageUrl": "https://…", "soldOut": false }
-    ]},
-    { "key": "etc", "label": "기타", "items": [
-      { "id": "e1", "name": "직원 호출", "price": 0, "description": "…", "imageUrl": "https://…" }
-    ]}
-  ]
-}
-```
-
-- 프론트 `Product` 타입과 매핑: `image`(로컬 import) → `imageUrl`(원격 URL)로 변경 필요.
-- `price: 0` 항목(직원 호출/물/수저)의 "무료 주문" 분기가 이미 프론트에 존재 → 백엔드도 0원 주문 흐름 지원 필요.
-
-### 3.3 주문 생성 — **신규 필요**
-
-장바구니 결제 시 호출. **table/togo 공통** 바디에 식별 컨텍스트를 담는다.
-
-```
-POST /api/stores/{store}/orders
-```
-
-테이블 주문:
-```json
-{
-  "mode": "table",
-  "tableNumber": 2,
-  "items": [ { "itemId": "m1", "quantity": 2 } ]
-}
-```
-
-포장(togo) 주문:
-```json
-{
-  "mode": "togo",
-  "phone": "01012345678",     // 전체 번호(서버 보관 정책에 따름)
-  "phoneLast4": "5678",        // 픽업 구분용 뒷자리
-  "items": [ { "itemId": "m1", "quantity": 1 } ]
-}
-```
-
-응답:
-```json
-{ "orderId": "…", "orderNo": "A-17", "amount": 17000, "paymentRequired": true }
-```
-
-- 금액은 **서버에서 재계산**(프론트 total 신뢰 금지).
-- `paymentRequired`로 유료/무료(0원) 주문 분기.
-
-### 3.4 결제 — **신규 필요 (미설계)**
-
-프론트 `PayScreen`은 "결제가 완료되면 결제 완료 버튼을 눌러주세요" 수준의 대기 화면이며 PG 연동이 없다.
-- 결제 수단/PG, 결제 완료 콜백(웹훅), 결제-주문 매핑 규약 확정 필요.
-- 무료(0원) 주문은 결제 없이 즉시 완료 처리 흐름 필요(현재 프론트 TODO).
-
-### 3.5 주문 내역 조회 — **신규 필요**
-
-`HistoryScreen`용.
-- **테이블**: `tableNumber` 기준 현재 세션 주문 목록.
-- **포장**: `phoneLast4`(또는 전체 번호) 기준 조회. → 뒷자리 충돌 가능성 주의(8.보안 참조).
-
----
-
-## 4. 데이터 모델 (프론트 → 백엔드 매핑)
-
-프론트 내부 타입 기준(실제 코드: `src/session.tsx`, `src/data.ts`).
+## 세션 모델
 
 ```ts
-// URL에서 해석되는 세션
+// src/session.tsx
 type StoreSession =
-  | { storeId: string; storeName: string; mode: 'table'; tableNumber: number }
-  | { storeId: string; storeName: string; mode: 'togo' }
-
-// 포장 주문 식별자: 전화번호 뒷 4자리
-phoneLast4(phone): string   // 숫자만 남기고 마지막 4자리
+  | { storeName: string; mode: 'table'; qrToken: string; tableName: string }
+  | { storeName: string; mode: 'togo'; pickupToken: string; takeoutEnabled: boolean }
 ```
 
-| 프론트 값 | 소스 | 백엔드 대응 |
-| --- | --- | --- |
-| `storeId` | URL `store` | 매장 PK / 식별자 |
-| `storeName` | 현재 하드코딩(`STORE_NAMES`) | 매장 마스터의 이름 |
-| `tableNumber` | URL `table` | 테이블 마스터의 번호(+ 매장 내 유일성) |
-| `phone` | 사용자 입력(010 + 8자리) | 주문의 연락처 |
-| `phoneLast4` | 파생값 | 픽업 호출/구분 키 |
+`storeId`/`tableId`는 세션에 없다 — 명세서 v2부터 손님 쪽 API는 `storeId` 없이 토큰만으로 동작한다
+(메뉴판·주문·직원호출·주문내역 전부 `qrToken`/`pickupToken`을 그대로 넘긴다). API 호출 시 필요한
+토큰은 `entryToken(session)` 헬퍼로 구한다.
 
----
+## 전화번호(포장 주문) 처리
 
-## 5. 주문 흐름
+- 포장 주문은 손님이 전화번호를 입력해야 메뉴 화면에 진입할 수 있다 (`phoneGate`, `PhoneEntryModal`).
+- 전체 번호는 **`sessionStorage`에만** 보관한다 (`qrto:phone:{pickupToken}` 키) — URL에는 절대 남기지
+  않는다. 새로고침해도 같은 `pickupToken`이면 `sessionStorage`에서 복원되어 모달을 다시 안 띄운다.
+- 주문 생성(`POST /api/customer/orders`)·주문내역 조회(`GET .../orders/by-phone`)에 전체 번호를
+  그대로 실어 보낸다. 서버 응답의 `phoneNumber`는 마스킹(`**-****-5678`)되어 온다.
+- 헤더에 보이는 라벨은 뒷 4자리만 노출한다 (`phoneLast4()`).
 
-### 테이블 주문
+## 주문 흐름 요약
+
 ```
-QR 스캔 → (?store=&table=) → 메뉴 화면 즉시 진입 → 장바구니 → 결제 대기 → 완료
+QR 스캔 → entry API로 세션 구성
+  → (포장이면) 전화번호 입력 모달
+  → 메뉴 → 장바구니 → 주문 생성
+      · 합계 0원 → 바로 접수(RECEIVED), 결제 화면 건너뜀
+      · 유료 → 결제대기(PENDING_PAYMENT) → "결제 완료" 버튼 → payments/confirm → 접수
+  → 완료 화면 (WebSocket으로 상태 실시간 갱신: 조리중 → 조리완료 → 서빙/픽업)
 ```
 
-### 포장(togo) 주문
-```
-QR 스캔 → (?store=&togo) → 메뉴 화면 위에 [전화번호 입력 모달] 강제 노출
-   → 010 + 8자리 입력 → 확인
-   → 전체 번호를 sessionStorage 저장 + URL을 ?...&togo=5678로 replaceState
-   → 모달 닫힘(뒷자리 = 픽업 식별자) → 메뉴 → 장바구니 → 결제 → 완료
-```
-
-- 전화번호(전체) 입력 전에는 장바구니/결제/주문내역으로 진행 불가(프론트에서 `phoneGate = togo && !phone`로 차단).
-- 새로고침/재진입: URL 뒷자리 + sessionStorage 전체 번호가 맞으면 복원(모달 스킵), 전체 번호가 없으면 모달 재노출.
-- 헤더 라벨: 테이블은 `홀 2번 테이블`, 포장은 `NULL-픽업` → 입력/복원 후 `5678-픽업`.
-
----
-
-## 6. 전화번호 / 개인정보 처리
-
-포장 입력 모달 문구(디자인 확정): **"픽업을 위한 전화번호로 사용되며, 금일 주점 종료 후 자동 파기됩니다."**
-
-→ 백엔드가 반드시 맞춰야 하는 정책:
-
-- **자동 파기**: 영업 종료 시점(매장별 영업일 기준)에 당일 포장 주문의 전화번호를 파기/마스킹.
-  파기 배치 주기·기준시각(영업일 롤오버 정의) 필요.
-- **저장 범위(확정)**: 백엔드는 **전체 번호**를 보관/사용한다. (프론트 URL엔 뒷 4자리만, 전체 번호는 클라이언트 `sessionStorage`)
-  - 주문 생성 시 프론트가 전체 번호(`phone`)를 함께 전송한다(3.3 참조).
-  - 자동 파기 대상은 이 **전체 번호**다.
-- **입력 규격**: 국번 `010` 고정, 나머지 8자리. (현재 프론트가 010 고정 UI)
-  - 010 외 번호(안심번호/일반전화)를 허용할지 정책 확정 필요.
-- **개인정보 처리 고지/동의** 노출 필요 여부 검토(수집·이용 목적 = 픽업).
-
----
-
-## 7. 현재 하드코딩 / 미구현 (연동 시 정리 대상)
-
-| 위치 | 현재 상태 | 연동 시 조치 |
-| --- | --- | --- |
-| `src/session.tsx` `STORE_NAMES` | 매장명 하드코딩(`eulji → 을지포차`) | 3.1 컨텍스트 API 응답으로 대체 |
-| `src/session.tsx` 기본값 | `store=eulji`, `table=2` 폴백 | 실서비스에선 유효하지 않은 QR을 에러 처리(무단 폴백 금지) |
-| `src/data.ts` | 메뉴/기타 항목 목업 | 3.2 메뉴 API로 대체, `image`→`imageUrl` |
-| `PayScreen` | PG 없는 결제 대기 화면 | 3.4 결제 연동 |
-| 0원(무료) 주문 | `handlePay`에 TODO 주석 | 무료 주문 완료 흐름 서버/화면 정의 |
-| 주문 상태 실시간 | 없음 | 필요 시 폴링/웹소켓/SSE 설계 |
-
----
-
-## 8. 보안 · 검증 고려사항
-
-- **파라미터 위조**: `store`/`table`은 클라이언트에서 오는 값이므로 **항상 서버 검증**.
-  존재하지 않는 매장/테이블, 영업 종료 매장 요청을 거부.
-- **금액 위변조**: 주문 금액은 서버에서 메뉴 마스터 기준으로 재계산.
-- **포장 뒷자리 충돌**: 서로 다른 손님의 전화번호 뒷 4자리가 같을 수 있음.
-  - 픽업 식별을 뒷자리 단독으로 하면 충돌 위험 → 주문번호(`orderNo`) 병행 권장.
-- **QR 도용/스팸 주문**: 불투명 매장 토큰 + 서버측 rate limit / 영업시간 체크.
-- **개인정보 최소 수집·자동 파기**(6항)와 전송 구간 TLS 필수.
-
----
-
-## 9. 백엔드에 요청하는 결정 사항 (체크리스트)
-
-- [ ] `store` 식별자 형식(불투명 토큰 권장) 및 매장 마스터 스키마
-- [ ] 테이블 번호 체계와 매장 내 유일성 규칙
-- [ ] 컨텍스트/메뉴/주문/결제/주문내역 API 스펙 확정 (3항)
-- [ ] 금액 서버 재계산 규칙, 0원 주문 처리 방식
-- [ ] 포장 픽업 식별 키(뒷자리 단독 vs 주문번호 병행)
-- [x] 전화번호 저장 범위 — **URL 뒷 4자리 / 백엔드·클라이언트 전체 번호**로 확정
-- [ ] 영업 종료 기준 자동 파기 배치(전체 번호 대상)
-- [ ] 결제 PG 및 완료 콜백 규약
-- [ ] 유효하지 않은 QR/영업 종료 시 프론트에 내려줄 에러 코드
+결제대기 화면에서 뒤로가기를 누르면 서버에 남는 주문을 실제로 취소한다
+(`PATCH /api/customer/orders/{id}/cancel`) — 화면만 바꾸고 서버 주문을 방치하지 않는다.

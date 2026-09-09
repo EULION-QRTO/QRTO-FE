@@ -11,17 +11,23 @@ import { qrEntry, pickupEntry } from './lib/endpoints'
 import { ApiError } from './lib/api'
 
 // QR 코드에 담긴 URL로 "어느 매장의 / 어떤 주문 방식"인지 결정한다.
-// 백엔드 QR URL 스킴:
-//   테이블 : {front}/order?token=<qrToken>     → GET /api/qr/{qrToken}      (DINE_IN)
-//   픽업   : {front}/pickup?token=<pickupToken> → GET /api/qr/pickup/{token} (TAKEOUT)
+// 백엔드 QR URL 스킴 (명세서 v2):
+//   테이블 : {front}/order?token=<qrToken>     → GET /api/customer/entry/table/{qrToken}   (DINE_IN)
+//   픽업   : {front}/pickup?token=<pickupToken> → GET /api/customer/entry/pickup/{token}    (TAKEOUT)
 //
-// 진입 토큰으로 매장/테이블을 백엔드에서 확인해 세션을 구성한다.
+// 진입 토큰으로 매장/테이블을 백엔드에서 확인해 세션을 구성한다. storeId/tableId는 v2에서
+// 손님 응답에 더 이상 내려오지 않는다 — 메뉴판·주문·직원호출 전부 storeId 없이 토큰만으로 동작한다.
 // 픽업 주문은 손님이 전화번호를 입력하고, 전체 번호는 sessionStorage 에만 보관한다.
 // (개인정보 정책상 URL/히스토리에는 남기지 않는다.)
 
 export type StoreSession =
-  | { storeId: number; storeName: string; mode: 'table'; qrToken: string; tableId: number; tableName: string }
-  | { storeId: number; storeName: string; mode: 'togo'; pickupToken: string; takeoutEnabled: boolean }
+  | { storeName: string; mode: 'table'; qrToken: string; tableName: string }
+  | { storeName: string; mode: 'togo'; pickupToken: string; takeoutEnabled: boolean }
+
+/** 현재 세션의 진입 토큰(qrToken 또는 pickupToken) — API 호출의 소유 증명/식별자로 쓰인다. */
+export function entryToken(session: StoreSession): string {
+  return session.mode === 'table' ? session.qrToken : session.pickupToken
+}
 
 // 픽업 전체 전화번호를 픽업 토큰 단위로 보관하는 sessionStorage 키.
 const phoneKey = (pickupToken: string) => `qrto:phone:${pickupToken}`
@@ -99,10 +105,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             status: 'ready',
             session: {
               mode: 'table',
-              storeId: e.storeId,
               storeName: e.storeName,
               qrToken: entry.token,
-              tableId: e.tableId,
               tableName: e.tableName,
             },
           })
@@ -114,7 +118,6 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             status: 'ready',
             session: {
               mode: 'togo',
-              storeId: e.storeId,
               storeName: e.storeName,
               pickupToken: entry.token,
               takeoutEnabled: e.takeoutEnabled,

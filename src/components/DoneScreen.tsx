@@ -1,9 +1,21 @@
 import Frame from './Frame'
 import Header from './Header'
 import BottomButton from './BottomButton'
-import type { OrderResponse } from '../lib/dto'
+import type { OrderResponse, OrderStatus } from '../lib/dto'
+
+// 진행중/완료 상태별 배지 색 (HistoryScreen과 동일 팔레트).
+const STATUS_STYLE: Record<OrderStatus, string> = {
+  PENDING_PAYMENT: 'bg-[#ededed] text-[#969ca3]',
+  RECEIVED: 'bg-[#e5f7e5] text-[#2e9e2e]',
+  PREPARING: 'bg-[#ffe5d5] text-[#ff6000]',
+  COOKED: 'bg-[#d5f0ff] text-[#0080c0]',
+  SERVED: 'bg-[#e5f7e5] text-[#2e9e2e]',
+  PICKED_UP: 'bg-[#e5f7e5] text-[#2e9e2e]',
+  CANCELED: 'bg-[#f7e5e5] text-[#b3261e]',
+}
 
 // 주문 완료 화면 — 결제 승인(또는 0원 주문 접수) 후 진입한다.
+// order.status는 실시간(WebSocket)으로 갱신되어, 조리중/조리완료/서빙 등으로 배지가 그대로 바뀐다.
 export default function DoneScreen({
   order,
   onMore,
@@ -18,8 +30,12 @@ export default function DoneScreen({
       <Header
         onOrderHistory={onOpenHistory}
         secondRow={
-          <span className="rounded-[16px] bg-[#e5f7e5] px-[18px] py-[5px] text-[15px] font-bold text-[#2e9e2e]">
-            주문 완료
+          <span
+            className={`rounded-[16px] px-[18px] py-[5px] text-[15px] font-bold ${
+              order ? STATUS_STYLE[order.status] : STATUS_STYLE.RECEIVED
+            }`}
+          >
+            {order?.statusLabel ?? '주문 완료'}
           </span>
         }
       />
