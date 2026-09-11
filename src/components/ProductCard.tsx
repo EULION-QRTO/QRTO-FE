@@ -124,7 +124,13 @@ export default function ProductCard({
         </p>
 
         {/* 서버가 imageUrl 을 안 줄 때만 — 사진 박스가 없으니 컨트롤을 카드 하단에 인라인으로 둔다. */}
-        {!item.image && <div className="mt-auto flex justify-end pt-[14px]">{controls}</div>}
+        {!item.image && (
+          <div className="mt-auto flex justify-end pt-[14px]">
+            {/* 담기 아이콘(26px)/수량 알약(32px) 중 뭐가 오든 이 자리 높이는 32px로 고정 —
+                안 그러면 +를 처음 눌러 알약이 나타나는 순간 카드 전체가 커져 보인다. */}
+            <div className="flex h-[32px] items-center">{controls}</div>
+          </div>
+        )}
       </div>
 
       {/* imageUrl 이 있을 때만 사진 박스를 그린다 — 없으면 플레이스홀더 없이 통째로 생략. */}
