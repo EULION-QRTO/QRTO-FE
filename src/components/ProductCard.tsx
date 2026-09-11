@@ -13,7 +13,7 @@ function QuantityCounter({
   onDecrement: () => void
 }) {
   return (
-    <div className="absolute bottom-[-3px] right-0 flex h-[26px] w-[78px] items-center justify-between rounded-[60px] bg-[#ff6000] px-[6px] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]">
+    <div className="flex h-[26px] w-[78px] items-center justify-between rounded-[60px] bg-[#ff6000] px-[6px] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]">
       <button
         type="button"
         onClick={onDecrement}
@@ -41,11 +41,38 @@ function AddButton({ onClick }: { onClick: () => void }) {
       type="button"
       onClick={onClick}
       aria-label="담기"
-      className="absolute bottom-[-3px] right-0 flex size-[26px] items-center justify-center rounded-full bg-[#fafbfc] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]"
+      className="flex size-[26px] items-center justify-center rounded-full bg-[#fafbfc] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]"
     >
       <img alt="" className="size-[14px]" src={plusOrange} />
     </button>
   )
+}
+
+function SoldOutBadge() {
+  return (
+    <span className="rounded-[60px] bg-[#bebebe] px-[10px] py-[4px] text-[12px] font-bold leading-none text-white">
+      품절
+    </span>
+  )
+}
+
+// 품절 배지 / 수량 조절 / 담기 버튼 — 위치는 감싸는 쪽(사진 박스 모서리 vs 카드 하단)에서 정한다.
+function CardControls({
+  item,
+  quantity,
+  onIncrement,
+  onDecrement,
+}: {
+  item: Product
+  quantity: number
+  onIncrement: () => void
+  onDecrement: () => void
+}) {
+  if (item.soldOut) return <SoldOutBadge />
+  if (quantity > 0) {
+    return <QuantityCounter quantity={quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
+  }
+  return <AddButton onClick={onIncrement} />
 }
 
 export default function ProductCard({
@@ -59,6 +86,10 @@ export default function ProductCard({
   onIncrement: () => void
   onDecrement: () => void
 }) {
+  const controls = (
+    <CardControls item={item} quantity={quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
+  )
+
   return (
     <div className="relative flex min-h-[123px] shrink-0 gap-[16px] overflow-hidden rounded-[16px] bg-[#fafbfc] p-[20px] shadow-[0px_1px_4.9px_-1px_rgba(0,0,0,0.25)]">
       <div className="flex min-w-0 flex-1 flex-col">
@@ -69,28 +100,22 @@ export default function ProductCard({
         <p className="mt-[6px] line-clamp-2 text-[10px] font-semibold leading-[normal] text-[#969ca3]">
           {item.description}
         </p>
+
+        {/* 서버가 imageUrl 을 안 줄 때만 — 사진 박스가 없으니 컨트롤을 카드 하단에 인라인으로 둔다. */}
+        {!item.image && <div className="mt-auto flex justify-end pt-[14px]">{controls}</div>}
       </div>
 
-      <div className="relative size-[87px] shrink-0 self-start">
-        <img
-          alt={item.name}
-          className={`size-full rounded-[16px] object-cover ${item.soldOut ? 'opacity-40' : ''}`}
-          src={item.image}
-        />
-        {item.soldOut ? (
-          <span className="absolute bottom-[-3px] right-0 rounded-[60px] bg-[#bebebe] px-[10px] py-[4px] text-[12px] font-bold leading-none text-white">
-            품절
-          </span>
-        ) : quantity > 0 ? (
-          <QuantityCounter
-            quantity={quantity}
-            onIncrement={onIncrement}
-            onDecrement={onDecrement}
+      {/* imageUrl 이 있을 때만 사진 박스를 그린다 — 없으면 플레이스홀더 없이 통째로 생략. */}
+      {item.image && (
+        <div className="relative size-[87px] shrink-0 self-start">
+          <img
+            alt={item.name}
+            className={`size-full rounded-[16px] object-cover ${item.soldOut ? 'opacity-40' : ''}`}
+            src={item.image}
           />
-        ) : (
-          <AddButton onClick={onIncrement} />
-        )}
-      </div>
+          <div className="absolute bottom-[-3px] right-0">{controls}</div>
+        </div>
+      )}
     </div>
   )
 }
