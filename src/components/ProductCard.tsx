@@ -13,7 +13,11 @@ function QuantityCounter({
   onDecrement: () => void
 }) {
   return (
-    <div className="flex h-[26px] w-[78px] items-center justify-between rounded-[60px] bg-[#ff6000] px-[6px] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]">
+    <div
+      // 카드 전체가 "담기"이므로, 이 안의 -/+ 클릭이 카드 클릭으로 겹쳐 발동하지 않게 막는다.
+      className="flex h-[26px] w-[78px] items-center justify-between rounded-[60px] bg-[#ff6000] px-[6px] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]"
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         onClick={onDecrement}
@@ -35,16 +39,15 @@ function QuantityCounter({
   )
 }
 
-function AddButton({ onClick }: { onClick: () => void }) {
+// 카드 전체를 눌러도 담기가 동작하므로, 이 원형 버튼은 그 동작을 보여주는 장식용 표시일 뿐이다.
+function AddButtonMark() {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-label="담기"
+    <span
+      aria-hidden="true"
       className="flex size-[26px] items-center justify-center rounded-full bg-[#fafbfc] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]"
     >
       <img alt="" className="size-[14px]" src={plusOrange} />
-    </button>
+    </span>
   )
 }
 
@@ -56,7 +59,7 @@ function SoldOutBadge() {
   )
 }
 
-// 품절 배지 / 수량 조절 / 담기 버튼 — 위치는 감싸는 쪽(사진 박스 모서리 vs 카드 하단)에서 정한다.
+// 품절 배지 / 수량 조절 / 담기 표시 — 위치는 감싸는 쪽(사진 박스 모서리 vs 카드 하단)에서 정한다.
 function CardControls({
   item,
   quantity,
@@ -72,7 +75,7 @@ function CardControls({
   if (quantity > 0) {
     return <QuantityCounter quantity={quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
   }
-  return <AddButton onClick={onIncrement} />
+  return <AddButtonMark />
 }
 
 export default function ProductCard({
@@ -90,8 +93,27 @@ export default function ProductCard({
     <CardControls item={item} quantity={quantity} onIncrement={onIncrement} onDecrement={onDecrement} />
   )
 
+  // 카드 아무 데나 눌러도 담긴다(품절 제외). 안의 -/+ 버튼은 자체 stopPropagation으로 따로 동작한다.
+  const handleActivate = () => {
+    if (!item.soldOut) onIncrement()
+  }
+
   return (
-    <div className="relative flex min-h-[123px] shrink-0 gap-[16px] overflow-hidden rounded-[16px] bg-[#fafbfc] p-[20px] shadow-[0px_1px_4.9px_-1px_rgba(0,0,0,0.25)]">
+    <div
+      role="button"
+      tabIndex={item.soldOut ? -1 : 0}
+      aria-label={`${item.name} 담기`}
+      aria-disabled={item.soldOut}
+      onClick={handleActivate}
+      onKeyDown={(e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
+        handleActivate()
+      }}
+      className={`relative flex min-h-[123px] shrink-0 gap-[16px] overflow-hidden rounded-[16px] bg-[#fafbfc] p-[20px] shadow-[0px_1px_4.9px_-1px_rgba(0,0,0,0.25)] ${
+        item.soldOut ? '' : 'cursor-pointer'
+      }`}
+    >
       <div className="flex min-w-0 flex-1 flex-col">
         <h3 className="text-[16px] font-bold leading-[normal] text-black">{item.name}</h3>
         <p className="mt-[8px] text-[16px] font-bold leading-[normal] text-black">
