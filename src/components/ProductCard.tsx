@@ -15,25 +15,25 @@ function QuantityCounter({
   return (
     <div
       // 카드 전체가 "담기"이므로, 이 안의 -/+ 클릭이 카드 클릭으로 겹쳐 발동하지 않게 막는다.
-      className="flex h-[26px] w-[78px] items-center justify-between rounded-[60px] bg-[#ff6000] px-[6px] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]"
+      className="flex h-[32px] w-[88px] items-center justify-between rounded-[60px] bg-[#ff6000] px-[6px] shadow-[0px_0px_8px_0px_rgba(0,0,0,0.25)]"
       onClick={(e) => e.stopPropagation()}
     >
       <button
         type="button"
         onClick={onDecrement}
         aria-label="수량 감소"
-        className="flex size-[16px] items-center justify-center"
+        className="flex size-[22px] items-center justify-center"
       >
-        <img alt="" className="h-[2px] w-[11px]" src={minusWhite} />
+        <img alt="" className="h-[2px] w-[13px]" src={minusWhite} />
       </button>
-      <span className="text-[13px] font-bold leading-none text-white">{quantity}</span>
+      <span className="text-[14px] font-bold leading-none text-white">{quantity}</span>
       <button
         type="button"
         onClick={onIncrement}
         aria-label="수량 증가"
-        className="flex size-[16px] items-center justify-center"
+        className="flex size-[22px] items-center justify-center"
       >
-        <img alt="" className="size-[13px]" src={plusWhite} />
+        <img alt="" className="size-[16px]" src={plusWhite} />
       </button>
     </div>
   )
