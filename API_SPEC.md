@@ -40,6 +40,16 @@ API의 정식 사양(요청/응답 스키마, 에러 코드 전체, 포스·관�
 `StoreApp.tsx`가 주문이 생성되는 즉시 구독을 시작해서, 결제 확정(RECEIVED) → 조리중 → 조리완료 →
 서빙/픽업 · 취소 · 청산까지의 상태 변화를 `DoneScreen`/`HistoryScreen`에 그대로 반영한다.
 
+## 메뉴 사진 (2026-09-11 명세서 "사진 업로드 API" 반영)
+
+메뉴 사진 업로드(`POST /api/pos/menus/{menuId}/image`)는 **POS 쪽 API**라 이 저장소(손님용 앱) 범위 밖이다
+(POS/관리자 화면은 별도 레포에서 작업 중). 이 저장소가 신경 쓰는 건 **읽는 쪽**뿐이고, 이미 대응되어 있다:
+
+- `menu-board` 응답의 `imageUrl`은 이제 S3 절대 URL(`https://…s3.ap-northeast-2.amazonaws.com/…`)이다.
+  [`assetUrl()`](src/lib/config.ts)이 `https://`로 시작하는 값은 그대로 통과시키므로 코드 변경 불필요.
+- `imageUrl`이 `null`이면 명세서는 "플레이스홀더"를 제안하지만, 이 앱은 **사진 박스 자체를 생략**한다
+  (의도적 결정 — [`ProductCard.tsx`](src/components/ProductCard.tsx) 참고).
+
 ## 명시적으로 안 하는 것
 
 - **결제 live 모드(실제 PG)**: `payments/config`의 `mode`가 `live`여도 분기하지 않는다 — 현재는 항상
