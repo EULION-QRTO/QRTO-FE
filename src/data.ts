@@ -1,4 +1,3 @@
-import food from './assets/food.png'
 import { assetUrl } from './lib/config'
 import type { MenuResponse, MenuBoardResponse } from './lib/dto'
 
@@ -7,14 +6,12 @@ export type Product = {
   name: string
   price: number
   description: string
-  image: string
+  /** 서버가 imageUrl 을 안 내려주면 undefined — 이때는 사진 없이 표시한다(플레이스홀더 없음). */
+  image: string | undefined
   soldOut: boolean
 }
 
 export type TabKey = 'menu' | 'etc'
-
-// 이미지가 없는 메뉴에 쓰는 기본 이미지.
-export const PLACEHOLDER_IMAGE = food
 
 export function toProduct(m: MenuResponse): Product {
   return {
@@ -22,7 +19,7 @@ export function toProduct(m: MenuResponse): Product {
     name: m.name,
     price: m.price,
     description: m.description ?? '',
-    image: assetUrl(m.imageUrl) ?? PLACEHOLDER_IMAGE,
+    image: assetUrl(m.imageUrl),
     soldOut: m.soldOut,
   }
 }
