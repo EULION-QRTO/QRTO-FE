@@ -7,9 +7,8 @@ import type {
   MenuBoardResponse,
   OrderResponse,
   CreateOrderRequest,
-  PaymentConfigResponse,
-  PaymentConfirmRequest,
-  PaymentConfirmResponse,
+  PaymentRequestRequest,
+  PaymentResponse,
   StaffCallResponse,
 } from './dto'
 
@@ -54,10 +53,11 @@ export const cancelOrder = (orderId: number, token: string) =>
 export const callStaff = (qrToken: string) =>
   http.post<StaffCallResponse>('/api/customer/staff-calls', { body: { qrToken } })
 
-/** 결제창 설정 */
-export const paymentConfig = () =>
-  http.get<PaymentConfigResponse>('/api/customer/payments/config')
-
-/** 결제 승인 */
-export const confirmPayment = (req: PaymentConfirmRequest) =>
-  http.post<PaymentConfirmResponse>('/api/customer/payments/confirm', { body: req })
+/**
+ * 결제 요청 (페이앱) — 결제대기 주문의 결제 링크를 발급한다. 멱등(REQUESTED/PAID 상태면 그 값을 그대로 반환).
+ * mock 모드는 외부 호출 없이 즉시 status:"PAID" (payUrl 없음). live 모드는 status:"REQUESTED" + payUrl —
+ * 이 URL로 페이지 이동시켜야 페이앱 결제창이 뜬다. 결제 완료는 페이앱 서버가 통보하므로, 이후 상태는
+ * WebSocket(/topic/orders/{orderId}) 구독이나 주문 재조회로 확인한다.
+ */
+export const requestPayment = (req: PaymentRequestRequest) =>
+  http.post<PaymentResponse>('/api/customer/payments/request', { body: req })

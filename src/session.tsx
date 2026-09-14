@@ -38,17 +38,32 @@ export function phoneLast4(phone: string): string {
 }
 
 type Entry =
-  | { kind: 'table'; token: string }
-  | { kind: 'pickup'; token: string }
+  | { kind: 'table'; token: string; orderId: number | null }
+  | { kind: 'pickup'; token: string; orderId: number | null }
   | { kind: 'none' }
 
-// 현재 URL(경로 + ?token)에서 진입 유형과 토큰을 읽는다.
+// 현재 URL(경로 + ?token[&orderId])에서 진입 유형과 토큰을 읽는다.
+// orderId는 페이앱 결제창에서 돌아왔을 때만 붙는다 — {front}/order?token=&orderId={id} (명세서 v2 결제 흐름).
 export function parseEntry(loc: Location = window.location): Entry {
-  const token = new URLSearchParams(loc.search).get('token') ?? ''
+  const params = new URLSearchParams(loc.search)
+  const token = params.get('token') ?? ''
+  const orderIdRaw = params.get('orderId')
+  const orderId = orderIdRaw && /^\d+$/.test(orderIdRaw) ? Number(orderIdRaw) : null
   const path = loc.pathname
-  if (path.startsWith('/pickup')) return token ? { kind: 'pickup', token } : { kind: 'none' }
+  if (path.startsWith('/pickup')) return token ? { kind: 'pickup', token, orderId } : { kind: 'none' }
   // '/order' 및 그 외 경로는 테이블 진입으로 간주 (토큰 필수)
-  return token ? { kind: 'table', token } : { kind: 'none' }
+  return token ? { kind: 'table', token, orderId } : { kind: 'none' }
+}
+
+// 결제창 복귀 처리가 끝나면 URL에서 orderId만 지운다(token/경로는 유지) — 새로고침·공유 시 중복 처리 방지.
+export function stripOrderIdParam(): void {
+  try {
+    const url = new URL(window.location.href)
+    url.searchParams.delete('orderId')
+    window.history.replaceState(null, '', url.pathname + url.search)
+  } catch {
+    /* noop */
+  }
 }
 
 function readStoredPhone(pickupToken: string): string {
@@ -66,6 +81,8 @@ type SessionContextValue = {
   setPhone: (phone: string) => void
   // 헤더에 표시할 위치/주문 방식 라벨.
   locationLabel: string
+  // 페이앱 결제창에서 돌아온 경우의 주문 ID(URL ?orderId=). 아니면 null.
+  returnOrderId: number | null
 }
 
 const SessionContext = createContext<SessionContextValue | null>(null)
@@ -156,8 +173,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       session.mode === 'table'
         ? `홀 ${session.tableName} 테이블`
         : `${phone ? phoneLast4(phone) : 'NULL'}-픽업`
-    return { session, phone, setPhone, locationLabel }
-  }, [load, phone, setPhone])
+    const returnOrderId = entry.kind !== 'none' ? entry.orderId : null
+    return { session, phone, setPhone, locationLabel, returnOrderId }
+  }, [load, phone, setPhone, entry])
 
   if (load.status === 'loading') return <CenteredMessage title="매장 정보를 불러오는 중…" />
   if (load.status === 'error')

@@ -1,30 +1,32 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type Product, type TabKey, splitMenuBoard } from '../data'
-import { useSession, entryToken } from '../session'
+import { useSession, entryToken, stripOrderIdParam } from '../session'
 import { ApiError } from '../lib/api'
 import {
   menuBoard,
   createOrder,
-  confirmPayment,
+  requestPayment,
   callStaff,
   ordersByTable,
   ordersByPhone,
   cancelOrder,
+  getOrder,
 } from '../lib/endpoints'
 import { subscribeOrderStatus } from '../lib/realtime'
 import type { OrderResponse } from '../lib/dto'
 import OrderScreen from './OrderScreen'
 import CartScreen from './CartScreen'
 import PayScreen from './PayScreen'
+import PaymentCheckScreen from './PaymentCheckScreen'
 import HistoryScreen from './HistoryScreen'
 import DoneScreen from './DoneScreen'
 import PhoneEntryModal from './PhoneEntryModal'
 
-type View = 'order' | 'cart' | 'pay' | 'history' | 'done'
+type View = 'order' | 'cart' | 'pay' | 'pay-check' | 'history' | 'done'
 
 export default function StoreApp() {
-  const { session, phone, setPhone } = useSession()
-  const [view, setView] = useState<View>('order')
+  const { session, phone, setPhone, returnOrderId } = useSession()
+  const [view, setView] = useState<View>(returnOrderId != null ? 'pay-check' : 'order')
   const [historyReturn, setHistoryReturn] = useState<View>('order')
   const [tab, setTab] = useState<TabKey>('menu')
 
@@ -51,6 +53,13 @@ export default function StoreApp() {
 
   const token = entryToken(session)
 
+  // 최신 view를 실시간 이벤트 핸들러(아래) 안에서 참조하기 위한 ref — 구독을 view 변경마다 끊고
+  // 다시 맺지 않기 위해 의존성 배열에는 넣지 않는다.
+  const viewRef = useRef(view)
+  useEffect(() => {
+    viewRef.current = view
+  }, [view])
+
   // 메뉴판 로드
   useEffect(() => {
     let alive = true
@@ -70,15 +79,60 @@ export default function StoreApp() {
     }
   }, [token, flash])
 
-  // 결제대기 중인 주문의 실시간 상태 구독 — 결제 확정(RECEIVED) → 조리중 → 완료 → 서빙/픽업,
-  // 취소·청산까지 전부 STATUS_CHANGED 로 온다. order.status/statusLabel 을 그대로 갱신한다.
+  // 페이앱 결제창에서 돌아온 경우(?orderId=) — 그 주문을 조회해 현재 상태로 화면을 맞춘다.
+  // 결제가 아직 안 끝났으면(PENDING_PAYMENT) '결제 확인 중' 화면에서 실시간 구독(아래)이 이어받는다.
+  useEffect(() => {
+    if (returnOrderId == null) return
+    let alive = true
+    ;(async () => {
+      try {
+        const o = await getOrder(returnOrderId, token)
+        if (!alive) return
+        setOrder(o)
+        if (o.status === 'CANCELED') {
+          flash('결제가 취소됐어요. 다시 주문해 주세요.')
+          setView('order')
+        } else if (o.status === 'PENDING_PAYMENT') {
+          setView('pay-check')
+        } else {
+          setQuantities({})
+          setView('done')
+        }
+      } catch (e) {
+        if (!alive) return
+        flash(e instanceof ApiError ? e.message : '주문 정보를 불러오지 못했습니다.')
+        setView('order')
+      } finally {
+        stripOrderIdParam()
+      }
+    })()
+    return () => {
+      alive = false
+    }
+    // returnOrderId/token은 세션당 한 번만 정해지고 바뀌지 않는다 — 최초 1회만 실행하면 된다.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [returnOrderId])
+
+  // 결제대기/확인중 주문의 실시간 상태 구독 — 결제 확정(RECEIVED) → 조리중 → 완료 → 서빙/픽업,
+  // 취소·청산까지 전부 STATUS_CHANGED 로 온다. order.status/statusLabel 을 그대로 갱신하고,
+  // 결제대기/확인중 화면에 있었다면 결과에 따라 완료 화면(또는 취소 시 메뉴 화면)으로 넘긴다.
   useEffect(() => {
     if (!order) return
     const unsubscribe = subscribeOrderStatus(token, order.id, (updated) => {
       setOrder(updated)
+      const waitingForPayment = viewRef.current === 'pay' || viewRef.current === 'pay-check'
+      if (!waitingForPayment) return
+      if (updated.status === 'CANCELED') {
+        flash('결제가 취소됐어요.')
+        setQuantities({})
+        setView('order')
+      } else if (updated.status !== 'PENDING_PAYMENT') {
+        setQuantities({})
+        setView('done')
+      }
     })
     return unsubscribe
-  }, [order?.id, token])
+  }, [order?.id, token, flash])
 
   const allItems = useMemo(() => (menu ? [...menu.menu, ...menu.etc] : []), [menu])
   const priceById = useMemo(() => {
@@ -153,17 +207,26 @@ export default function StoreApp() {
     }
   }
 
-  // 결제 승인 (mock)
-  const confirm = async () => {
+  // 결제 요청(페이앱) — mock은 즉시 완료, live는 결제창(payUrl)으로 이동시킨다.
+  // 실제 결제 완료 판정은 페이앱 서버 통보로만 이루어지므로, 이동 후 결과는 복귀 URL(?orderId=)의
+  // '결제 확인 중' 화면과 실시간 구독이 이어받는다.
+  const startPayment = async () => {
     if (!order || placing) return
     setPlacing(true)
     try {
-      const res = await confirmPayment({ orderId: order.id, amount: order.totalPrice })
-      setOrder(res.order)
-      setQuantities({})
-      setView('done')
+      const res = await requestPayment({ orderId: order.id, token })
+      if (res.status === 'PAID') {
+        setOrder(res.order)
+        setQuantities({})
+        setView('done')
+      } else if (res.payUrl) {
+        window.location.href = res.payUrl
+        return // 페이지 이동 — placing 해제 불필요(언마운트됨)
+      } else {
+        flash('결제 페이지를 여는 데 실패했습니다.')
+      }
     } catch (e) {
-      flash(e instanceof ApiError ? e.message : '결제에 실패했습니다.')
+      flash(e instanceof ApiError ? e.message : '결제 요청에 실패했습니다.')
     } finally {
       setPlacing(false)
     }
@@ -217,6 +280,15 @@ export default function StoreApp() {
     )
   }
 
+  if (!phoneGate && view === 'pay-check') {
+    return (
+      <>
+        <PaymentCheckScreen onOpenHistory={openHistory} />
+        {noticeBar}
+      </>
+    )
+  }
+
   if (!phoneGate && view === 'history') {
     return (
       <>
@@ -233,7 +305,7 @@ export default function StoreApp() {
           amount={order?.totalPrice ?? total}
           placing={placing}
           onBack={backFromPay}
-          onComplete={confirm}
+          onComplete={startPayment}
           onOpenHistory={openHistory}
         />
         {noticeBar}

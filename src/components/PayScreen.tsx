@@ -4,7 +4,9 @@ import BottomButton from './BottomButton'
 import backArrow from '../assets/back-arrow.svg'
 import money from '../assets/money.svg'
 
-// 결제(결재)대기 화면 — 유료 상품이 있는 주문에서 "결제하기"를 누르면 진입한다.
+// 결제대기 화면 — 유료 상품이 있는 주문에서 진입한다.
+// 버튼을 누르면 결제 링크를 요청(POST payments/request)해 페이앱 결제창으로 이동시킨다
+// (mock 모드는 외부 이동 없이 즉시 완료 처리된다).
 export default function PayScreen({
   amount,
   placing,
@@ -42,14 +44,14 @@ export default function PayScreen({
       <main className="flex min-h-0 flex-1 flex-col items-center justify-center gap-[40px] px-[30px] pb-[110px]">
         <img alt="" className="size-[96px]" src={money} />
         <p className="text-center text-[24px] font-bold leading-[normal] text-black">
-          {amount.toLocaleString()}원 결제 후
+          아래 버튼을 누르면
           <br />
-          결제 완료 버튼을 눌러주세요.
+          결제 페이지로 이동해요.
         </p>
       </main>
 
       <BottomButton
-        label={placing ? '결제 확인 중…' : '결제 완료'}
+        label={placing ? '결제 페이지로 이동 중…' : `${amount.toLocaleString()}원 결제하기`}
         active={!placing}
         disabled={placing}
         onClick={onComplete}
