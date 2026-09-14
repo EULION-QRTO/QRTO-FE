@@ -29,8 +29,7 @@ API의 정식 사양(요청/응답 스키마, 에러 코드 전체, 포스·관�
 | GET | `/api/customer/orders/by-phone?token=&phoneNumber=` | `ordersByPhone` | `StoreApp.tsx` — 주문내역(포장) |
 | PATCH | `/api/customer/orders/{orderId}/cancel?token=` | `cancelOrder` | `StoreApp.tsx` — 결제대기 화면 이탈 시 자동 취소 |
 | POST | `/api/customer/staff-calls` | `callStaff` | `StoreApp.tsx` — 직원 호출 |
-| GET | `/api/customer/payments/config` | `paymentConfig` | (준비됨, 현재 화면에서 mode 분기는 안 함 — mock 전제) |
-| POST | `/api/customer/payments/confirm` | `confirmPayment` | `StoreApp.tsx` — "결제 완료" 버튼 |
+| POST | `/api/customer/payments/request` | `requestPayment` | `StoreApp.tsx` — "결제하기" 버튼. `REQUESTED`+`payUrl` 이면 페이앱 결제창으로 이동, `PAID` 면 즉시 완료 (2026-09-13 페이앱 전환, `config`/`confirm` 삭제) |
 
 전부 [`src/lib/endpoints.ts`](src/lib/endpoints.ts)에 있다. 요청/응답 타입은 [`src/lib/dto.ts`](src/lib/dto.ts).
 
@@ -52,9 +51,11 @@ API의 정식 사양(요청/응답 스키마, 에러 코드 전체, 포스·관�
 
 ## 명시적으로 안 하는 것
 
-- **결제 live 모드(실제 PG)**: `payments/config`의 `mode`가 `live`여도 분기하지 않는다 — 현재는 항상
-  mock 흐름(주문 생성 → "결제 완료" 버튼 → `payments/confirm`)만 탄다. 실제 PG 연동(Toss SDK 등)이
-  필요해지면 별도 작업.
+- **결제(페이앱, 2026-09-13)**: `payments/request` → `status`로 분기. `REQUESTED`면 `payUrl`(페이앱 결제창)로 같은 탭 이동,
+  결제 후 백엔드 returnurl 로 `/order?token=…&orderId=…`(픽업은 `/pickup?…`)에 돌아오면 `orderId` 주문을 다시 읽어
+  결제 확인/완료 화면을 연다. 결제 완료는 손님앱이 아니라 **페이앱 → 백엔드 통보**로 확정되며, 손님앱은 WebSocket
+  `/topic/orders/{id}` + 3초 폴링으로 `RECEIVED` 전환을 받는다. 운영 mock 모드에서는 `PAID`가 바로 와서 결제창 없이 완료된다.
+  1,000원 미만 유료 주문은 `P005`(페이앱 최소 금액).
 - **포스(`/api/pos/**`)·관리자(`/api/admin/**`) API**: 이 저장소는 손님용 주문 앱만 포함한다.
 
 ## 에러 코드

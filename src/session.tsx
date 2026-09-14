@@ -42,6 +42,26 @@ type Entry =
   | { kind: 'pickup'; token: string }
   | { kind: 'none' }
 
+/**
+ * 페이앱 결제 후 복귀 URL(`/order?token=…&orderId=…`, `/pickup?token=…&orderId=…`)의 주문 ID.
+ * 백엔드가 결제 요청 때 returnurl 로 이 형태를 넘기므로, 세션(토큰)은 QR 진입과 똑같이 복원되고
+ * orderId 로 결제 결과 화면을 연다. 없으면 null.
+ */
+export function parseReturnOrderId(loc: Location = window.location): number | null {
+  const raw = new URLSearchParams(loc.search).get('orderId')
+  if (!raw) return null
+  const n = Number(raw)
+  return Number.isInteger(n) && n > 0 ? n : null
+}
+
+/** 복귀 orderId 를 URL 에서 지운다(새로고침 시 결제 결과 화면이 다시 뜨지 않게). 토큰은 남긴다. */
+export function clearReturnOrderId(): void {
+  const url = new URL(window.location.href)
+  if (!url.searchParams.has('orderId')) return
+  url.searchParams.delete('orderId')
+  window.history.replaceState(null, '', url.toString())
+}
+
 // 현재 URL(경로 + ?token)에서 진입 유형과 토큰을 읽는다.
 export function parseEntry(loc: Location = window.location): Entry {
   const token = new URLSearchParams(loc.search).get('token') ?? ''

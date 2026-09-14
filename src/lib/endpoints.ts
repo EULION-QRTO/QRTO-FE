@@ -7,9 +7,8 @@ import type {
   MenuBoardResponse,
   OrderResponse,
   CreateOrderRequest,
-  PaymentConfigResponse,
-  PaymentConfirmRequest,
-  PaymentConfirmResponse,
+  PaymentRequestRequest,
+  PaymentResponse,
   StaffCallResponse,
 } from './dto'
 
@@ -54,10 +53,9 @@ export const cancelOrder = (orderId: number, token: string) =>
 export const callStaff = (qrToken: string) =>
   http.post<StaffCallResponse>('/api/customer/staff-calls', { body: { qrToken } })
 
-/** 결제창 설정 */
-export const paymentConfig = () =>
-  http.get<PaymentConfigResponse>('/api/customer/payments/config')
-
-/** 결제 승인 */
-export const confirmPayment = (req: PaymentConfirmRequest) =>
-  http.post<PaymentConfirmResponse>('/api/customer/payments/confirm', { body: req })
+/**
+ * 결제 요청(페이앱 결제 링크 발급). 응답 status 가 REQUESTED 면 payUrl 로 이동, PAID 면 이미 결제 완료.
+ * 같은 주문으로 다시 부르면 같은 링크(멱등). 에러: P005(1,000원 미만) · P001(결제 불가 상태) · P003(페이앱 실패)
+ */
+export const requestPayment = (req: PaymentRequestRequest) =>
+  http.post<PaymentResponse>('/api/customer/payments/request', { body: req })

@@ -1,11 +1,12 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { type Product, type TabKey, splitMenuBoard } from '../data'
-import { useSession, entryToken } from '../session'
+import { useSession, entryToken, parseReturnOrderId, clearReturnOrderId } from '../session'
 import { ApiError } from '../lib/api'
 import {
   menuBoard,
   createOrder,
-  confirmPayment,
+  requestPayment,
+  getOrder,
   callStaff,
   ordersByTable,
   ordersByPhone,
@@ -38,6 +39,10 @@ export default function StoreApp() {
   // 주문/결제
   const [order, setOrder] = useState<OrderResponse | null>(null)
   const [placing, setPlacing] = useState(false)
+  // 페이앱 결제창에서 돌아왔는데 아직 결제대기 — 서버 통보(WebSocket/폴링)를 기다리는 중.
+  const [payWaiting, setPayWaiting] = useState(false)
+  // 결제 후 복귀 URL(?orderId=) 처리는 한 번만.
+  const returnHandledRef = useRef(false)
 
   // 주문내역
   const [history, setHistory] = useState<OrderResponse[]>([])
@@ -79,6 +84,67 @@ export default function StoreApp() {
     })
     return unsubscribe
   }, [order?.id, token])
+
+  // 페이앱 결제 후 복귀(/order?token=…&orderId=…): 주문을 다시 읽어 결제 결과 화면을 연다.
+  // 페이앱 통보가 우리 서버에 먼저 닿는 게 보통이라 대부분 이미 RECEIVED 다. 아직 결제대기면 "결제 확인 중"으로 기다린다.
+  useEffect(() => {
+    if (returnHandledRef.current) return
+    const returnOrderId = parseReturnOrderId()
+    if (!returnOrderId) return
+    returnHandledRef.current = true
+    // alive 플래그를 두지 않는다 — React StrictMode(dev)가 effect 를 두 번 돌리면 첫 실행의 정리에서
+    // 응답이 버려지고 두 번째 실행은 ref 때문에 건너뛰어 복귀 화면이 안 뜬다. 한 번만 실행되는 게 ref 로 보장된다.
+    getOrder(returnOrderId, token)
+      .then((o) => {
+        setOrder(o)
+        if (o.status === 'PENDING_PAYMENT') {
+          setPayWaiting(true)
+          setView('pay')
+        } else if (o.status === 'CANCELED') {
+          clearReturnOrderId()
+          flash('취소된 주문이에요. 다시 주문해 주세요.')
+        } else {
+          setQuantities({})
+          setView('done')
+        }
+      })
+      .catch((e) => {
+        clearReturnOrderId()
+        flash(e instanceof ApiError ? e.message : '주문 정보를 불러오지 못했습니다.')
+      })
+  }, [token, flash])
+
+  // 결제 확인 중: WebSocket 이 놓칠 때를 대비해 3초마다 주문을 다시 읽는다(최대 2분).
+  useEffect(() => {
+    if (!payWaiting || !order) return
+    const started = Date.now()
+    const timer = setInterval(() => {
+      if (Date.now() - started > 120_000) {
+        clearInterval(timer)
+        return
+      }
+      getOrder(order.id, token)
+        .then((o) => setOrder(o))
+        .catch(() => {})
+    }, 3000)
+    return () => clearInterval(timer)
+  }, [payWaiting, order?.id, token])
+
+  // 결제대기 화면에서 주문이 접수(RECEIVED 이후)되면 완료 화면으로. 취소되면 처음으로.
+  useEffect(() => {
+    if (view !== 'pay' || !order) return
+    if (order.status === 'PENDING_PAYMENT') return
+    setPayWaiting(false)
+    if (order.status === 'CANCELED') {
+      clearReturnOrderId()
+      setOrder(null)
+      setView('order')
+      flash('주문이 취소되었어요.')
+      return
+    }
+    setQuantities({})
+    setView('done')
+  }, [view, order, flash])
 
   const allItems = useMemo(() => (menu ? [...menu.menu, ...menu.etc] : []), [menu])
   const priceById = useMemo(() => {
@@ -153,18 +219,31 @@ export default function StoreApp() {
     }
   }
 
-  // 결제 승인 (mock)
-  const confirm = async () => {
+  // 결제하기 — 서버에 결제 링크를 요청한다.
+  //  - PAID(운영 mock 즉시 승인 / 이미 결제됨) → 완료 화면
+  //  - REQUESTED → 페이앱 결제창(payUrl)으로 같은 탭에서 이동. 결제가 끝나면 페이앱이 서버에 통보하고
+  //    손님은 /order?token=…&orderId=… 로 돌아온다(위 복귀 처리). "다시 결제하기"도 같은 함수 — 같은 링크가 온다.
+  const startPayment = async () => {
     if (!order || placing) return
     setPlacing(true)
     try {
-      const res = await confirmPayment({ orderId: order.id, amount: order.totalPrice })
-      setOrder(res.order)
-      setQuantities({})
-      setView('done')
+      const res = await requestPayment({ orderId: order.id, token })
+      if (res.status === 'PAID') {
+        setOrder(res.order)
+        setQuantities({})
+        setPayWaiting(false)
+        setView('done')
+        return
+      }
+      if (res.status === 'REQUESTED' && res.payUrl) {
+        window.location.assign(res.payUrl)
+        return // 페이지가 떠난다 — placing 은 그대로 두어 버튼 연타를 막는다
+      }
+      flash('결제 링크를 받지 못했어요. 잠시 후 다시 시도해 주세요.')
     } catch (e) {
-      flash(e instanceof ApiError ? e.message : '결제에 실패했습니다.')
+      flash(e instanceof ApiError ? e.message : '결제 요청에 실패했습니다.')
     } finally {
+      // 이동에 성공한 경우엔 finally 가 실행되기 전에 페이지가 언로드되므로 무해하다.
       setPlacing(false)
     }
   }
@@ -188,12 +267,15 @@ export default function StoreApp() {
   // 실패해도(이미 결제 확정 등) 어차피 화면은 장바구니로 돌아간다 — 손님이 다시 시도할 수 있게.
   const backFromPay = () => {
     if (order) void cancelOrder(order.id, token).catch(() => {})
+    clearReturnOrderId()
+    setPayWaiting(false)
     setOrder(null)
     setView('cart')
   }
 
   // 포장(togo) 주문은 전화번호를 먼저 입력해야 한다.
-  const phoneGate = session.mode === 'togo' && !phone
+  // 단, 결제창에서 돌아와 주문이 이미 있는 경우(결제 확인/완료 화면)는 번호 없이도 보여준다.
+  const phoneGate = session.mode === 'togo' && !phone && !(order && (view === 'pay' || view === 'done'))
 
   const noticeBar = notice ? (
     <div className="pointer-events-none absolute bottom-[calc(env(safe-area-inset-bottom)+96px)] left-1/2 z-50 -translate-x-1/2 whitespace-nowrap rounded-[16px] bg-[rgba(28,28,28,0.9)] px-[18px] py-[10px] text-[13px] font-semibold text-white">
@@ -207,6 +289,7 @@ export default function StoreApp() {
         <DoneScreen
           order={order}
           onMore={() => {
+            clearReturnOrderId()
             setOrder(null)
             setView('order')
           }}
@@ -232,8 +315,9 @@ export default function StoreApp() {
         <PayScreen
           amount={order?.totalPrice ?? total}
           placing={placing}
+          waiting={payWaiting}
           onBack={backFromPay}
-          onComplete={confirm}
+          onPay={startPayment}
           onOpenHistory={openHistory}
         />
         {noticeBar}

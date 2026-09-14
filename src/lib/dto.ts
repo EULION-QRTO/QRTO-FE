@@ -96,28 +96,33 @@ export interface CreateOrderRequest {
   items: { menuId: number; quantity: number }[]
 }
 
-/* ── 결제 ── */
-export interface PaymentConfigResponse {
-  clientKey: string
-  mode: 'mock' | 'live' | string
-}
-
-export interface PaymentConfirmRequest {
+/* ── 결제 (페이앱 링크 결제, 2026-09-13) ── */
+/** POST /api/customer/payments/request 요청 — token 은 주문을 넣을 때 쓴 진입 토큰(qrToken/pickupToken) */
+export interface PaymentRequestRequest {
   orderId: number
-  amount: number
-  /** [live] PG 결제 키 */
-  paymentKey?: string
-  /** [live] 형식: QRTO-{orderId}-{ts} */
-  tossOrderId?: string
+  token: string
 }
 
-export interface PaymentConfirmResponse {
+export type PaymentStatus = 'REQUESTED' | 'PAID' | 'CANCELED'
+
+/**
+ * 결제 요청 응답.
+ *  - status REQUESTED → payUrl(페이앱 결제창)로 손님을 보낸다. 결제 완료는 페이앱이 서버에 통보하고,
+ *    주문이 RECEIVED 로 바뀌면 WebSocket /topic/orders/{id} 또는 주문 조회로 알 수 있다.
+ *  - status PAID → 이미 결제됨(운영 mock 모드 즉시 승인, 또는 재요청). payUrl 없음.
+ */
+export interface PaymentResponse {
   paymentId: number
   orderId: number
   amount: number
-  status: string
+  status: PaymentStatus
+  /** PAYAPP | MOCK */
   method: string
-  approvedAt: string
+  /** 페이앱 결제수단 코드(1 카드, 15 카카오페이 …). 결제 완료 전엔 null */
+  payType: string | null
+  /** REQUESTED 일 때만 */
+  payUrl: string | null
+  approvedAt: string | null
   order: OrderResponse
 }
 

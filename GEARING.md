@@ -48,7 +48,7 @@ QR 스캔 → entry API로 세션 구성
   → (포장이면) 전화번호 입력 모달
   → 메뉴 → 장바구니 → 주문 생성
       · 합계 0원 → 바로 접수(RECEIVED), 결제 화면 건너뜀
-      · 유료 → 결제대기(PENDING_PAYMENT) → "결제 완료" 버튼 → payments/confirm → 접수
+      · 유료 → 결제대기(PENDING_PAYMENT) → "결제하기" → payments/request → 페이앱 결제창(payUrl) → 통보로 접수 → 복귀(?orderId=) 확인
   → 완료 화면 (WebSocket으로 상태 실시간 갱신: 조리중 → 조리완료 → 서빙/픽업)
 ```
 
