@@ -4,7 +4,7 @@
 
 > ⚠️ 이 문서의 이전 버전은 백엔드 구현 전 `?store=&table=` 쿼리 파라미터 방식으로 설계를 제안했던
 > 문서였다 — 실제로 구현된 방식과 다르다. 아래는 현재 코드([`src/session.tsx`](src/session.tsx))
-> 기준 실제 동작이다. API 상세는 [`API_SPEC.md`](API_SPEC.md)와 Notion "QRTO API 명세서 (v2)" 참고.
+> 기준 실제 동작이다. API 상세는 [`API_SPEC.md`](API_SPEC.md)와 Notion "QRTO API 명세서" 참고.
 
 ## QR URL 스킴
 
@@ -13,8 +13,10 @@
 
 | 주문 방식 | URL | 백엔드 호출 |
 | --- | --- | --- |
-| 테이블(DINE_IN) | `https://lapy.shop/order?token={qrToken}` | `GET /api/customer/entry/table/{qrToken}` |
-| 포장(TAKEOUT) | `https://lapy.shop/pickup?token={pickupToken}` | `GET /api/customer/entry/pickup/{pickupToken}` |
+| 테이블(DINE_IN) | `https://lpay-order.vercel.app/order?token={qrToken}` | `GET /api/customer/entry/table/{qrToken}` |
+| 포장(TAKEOUT) | `https://lpay-order.vercel.app/pickup?token={pickupToken}` | `GET /api/customer/entry/pickup/{pickupToken}` |
+
+결제창(페이앱)에서 돌아올 때는 같은 경로에 `&orderId={id}`가 추가로 붙는다 — 아래 "주문 흐름 요약" 참고.
 
 `token`이 없거나 진입 조회가 실패하면(유효하지 않은 QR, 영업 종료 등) "QR 코드를 다시 스캔해 주세요"
 안내 화면을 보여준다 (`session.tsx`의 `parseEntry`/`SessionProvider`).
@@ -48,9 +50,14 @@ QR 스캔 → entry API로 세션 구성
   → (포장이면) 전화번호 입력 모달
   → 메뉴 → 장바구니 → 주문 생성
       · 합계 0원 → 바로 접수(RECEIVED), 결제 화면 건너뜀
-      · 유료 → 결제대기(PENDING_PAYMENT) → "결제 완료" 버튼 → payments/confirm → 접수
+      · 유료 → 결제대기(PENDING_PAYMENT) → "결제하기" 버튼 → payments/request
+          · mock: 즉시 접수(PAID)
+          · live: 페이앱 결제창(payUrl)으로 페이지 이동 → 결제 후 같은 경로에
+            &orderId= 붙여서 복귀 → PaymentCheckScreen("결제 확인 중")에서
+            WebSocket 으로 접수 확정을 기다림
   → 완료 화면 (WebSocket으로 상태 실시간 갱신: 조리중 → 조리완료 → 서빙/픽업)
 ```
 
 결제대기 화면에서 뒤로가기를 누르면 서버에 남는 주문을 실제로 취소한다
 (`PATCH /api/customer/orders/{id}/cancel`) — 화면만 바꾸고 서버 주문을 방치하지 않는다.
+결제 흐름 상세는 [`API_SPEC.md`](API_SPEC.md#결제-흐름-페이앱-2026-09-13-pg-전환-반영) 참고.

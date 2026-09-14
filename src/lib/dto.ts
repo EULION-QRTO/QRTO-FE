@@ -96,28 +96,28 @@ export interface CreateOrderRequest {
   items: { menuId: number; quantity: number }[]
 }
 
-/* ── 결제 ── */
-export interface PaymentConfigResponse {
-  clientKey: string
-  mode: 'mock' | 'live' | string
-}
-
-export interface PaymentConfirmRequest {
+/* ── 결제 (페이앱, 2026-09-13~) ──
+ * 결제 완료 판정은 손님앱이 아니라 페이앱 서버의 통보(payapp/feedback, 서버간 호출)로 이루어진다.
+ * 손님앱은 링크만 발급받아 이동시키고, 이후는 WebSocket(/topic/orders/{orderId})으로 상태를 받는다.
+ */
+export interface PaymentRequestRequest {
   orderId: number
-  amount: number
-  /** [live] PG 결제 키 */
-  paymentKey?: string
-  /** [live] 형식: QRTO-{orderId}-{ts} */
-  tossOrderId?: string
+  /** 소유 증명 토큰 — 주문 생성 때 쓴 값 그대로(DINE_IN=qrToken, TAKEOUT=pickupToken) */
+  token: string
 }
 
-export interface PaymentConfirmResponse {
+export interface PaymentResponse {
   paymentId: number
   orderId: number
   amount: number
-  status: string
+  /** live: REQUESTED(결제창으로 이동해야 함) | PAID. mock: 항상 PAID(즉시) */
+  status: 'REQUESTED' | 'PAID' | string
+  /** 'PAYAPP' | 'MOCK' */
   method: string
-  approvedAt: string
+  payType: string | null
+  /** live 이고 REQUESTED 일 때만 값이 있다 — 이 URL로 이동시키면 페이앱 결제창이 뜬다. mock 은 null. */
+  payUrl: string | null
+  approvedAt: string | null
   order: OrderResponse
 }
 
