@@ -67,6 +67,19 @@ StoreApp "결제하기" 클릭
 [`src/components/StoreApp.tsx`](src/components/StoreApp.tsx),
 [`src/components/PaymentCheckScreen.tsx`](src/components/PaymentCheckScreen.tsx).
 
+### ⚠️ 복귀 시 "도메인만 바뀌고 화면이 안 뜨는" 문제 — 원인과 수정 (2026-09-15)
+
+live 결제 테스트 중 발견: 페이앱이 결제 완료 후 `{front}/order?token=&orderId=`로 **GET 리다이렉트가
+아니라 자동 제출 POST 폼**으로 브라우저를 돌려보냈다. 이 프로젝트는 정적 SPA([`vercel.json`](vercel.json)
+의 rewrite로 모든 경로를 `index.html`로 서빙)라, 정적 파일은 POST 요청을 처리할 수 없어 Vercel이
+**405**를 반환 — 주소창은 정확한 URL로 바뀌지만 화면엔 아무것도 안 뜨는 증상으로 나타났다.
+(직접 재현: `curl -X POST https://lpay-order.vercel.app/order?token=..&orderId=..` → `405`, 본문 없음.
+같은 URL을 GET으로는 `200`.)
+
+[`middleware.js`](middleware.js)(Vercel Edge Middleware)로 수정 — `/order`·`/pickup`에 POST가 오면
+같은 URL(쿼리스트링 그대로)로 **303**(메서드를 GET으로 바꿔 재요청하라는 뜻) 리다이렉트한다. 그 뒤는
+기존에 이미 동작하던 GET 진입 경로를 그대로 탄다.
+
 1,000원 미만 유료 주문은 `400 P005`로 거부된다(페이앱 최소 결제금액). 0원 주문(물·수저 등)은 원래대로
 결제 없이 생성 즉시 `RECEIVED`.
 
