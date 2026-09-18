@@ -155,10 +155,21 @@ A-3 해결 내용과 동일 — [`index.html`](index.html)에 추가한
 
 ### C-6. 메뉴 사진에 `loading="lazy"` 없음
 
-**상태: 미해결**
+**상태: 해결**
 
 [`src/components/ProductCard.tsx`](src/components/ProductCard.tsx)의 `<img>`에 `loading`
 속성이 없다. 메뉴가 길어지면 화면 밖 사진까지 한 번에 다 받아온다.
+
+**해결 내용**
+
+- [`src/components/ProductCard.tsx`](src/components/ProductCard.tsx)의 메뉴 사진 `<img>`에
+  `loading="lazy"`(뷰포트 근처에 올 때만 요청)와 `decoding="async"`(디코딩이 메인 스레드
+  렌더링을 막지 않게)를 추가.
+- `npm run build` 산출물에서 `loading:"lazy"`가 번들에 그대로 포함된 것 확인, `npx tsc
+  --noEmit -p tsconfig.app.json` 정상 통과.
+- 브라우저 지원: 모든 주요 모바일 브라우저(Safari 16+, Chrome/Android 다수)가 `loading="lazy"`를
+  지원 — 미지원 브라우저에선 속성이 무시되고 기존과 동일하게(즉시 로드) 동작하므로 하위
+  호환 문제 없음.
 
 ### C-7. (참고, 백엔드 영역) 업로드 사진 원본 크기 대비 표시 크기 차이
 

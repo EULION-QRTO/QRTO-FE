@@ -140,6 +140,8 @@ export default function ProductCard({
             alt={item.name}
             className={`size-full rounded-[16px] object-cover ${item.soldOut ? 'opacity-40' : ''}`}
             src={item.image}
+            loading="lazy"
+            decoding="async"
           />
           <div className="absolute bottom-[-3px] right-0">{controls}</div>
         </div>
