@@ -15,7 +15,7 @@ API(entry, menu-board)만 직접 때려서 측정했다.
 
 ### A-1. entry → menu-board API가 순차 실행(waterfall)
 
-**상태: 미해결**
+**상태: 해결**
 
 `SessionProvider`가 진입 API(`GET /api/customer/entry/table|pickup/{token}`)를 끝내야
 `StoreApp`이 마운트되고, 그제서야 메뉴판 API(`GET /api/customer/menu-board?token=`)를 부른다.
@@ -24,6 +24,19 @@ API(entry, menu-board)만 직접 때려서 측정했다.
 
 관련 코드: [`src/session.tsx`](src/session.tsx)(`SessionProvider`),
 [`src/components/StoreApp.tsx`](src/components/StoreApp.tsx)(메뉴판 로드 `useEffect`).
+
+**해결 내용**
+
+- [`src/lib/endpoints.ts`](src/lib/endpoints.ts)의 `menuBoard()`에 token 기준 in-flight 요청
+  캐시를 추가 — 같은 token으로 거의 동시에 여러 번 불러도 실제 HTTP 요청은 하나만 나간다
+  (한 쪽이 실패하면 캐시에서 빼서 재시도 가능하게 함).
+- [`src/session.tsx`](src/session.tsx)의 `SessionProvider`가 진입 API를 부르는 것과 **같은
+  동기 실행 구간**에서 `menuBoard(entry.token)`을 미리 호출(prefetch)해두도록 수정. `StoreApp`은
+  코드 변경 없이 그대로 `menuBoard(token)`을 부르지만, 이미 날아가 있는 같은 요청을 그대로
+  넘겨받는다.
+- 실제 백엔드(`api.lapy.shop`)로 직접 측정한 결과(동일 token, entry+menu-board 왕복 총합):
+  **순차 195ms → 병렬 27ms** (약 168ms, 86% 단축).
+- `npm run build`(tsc 타입체크 포함) 정상 통과.
 
 ---
 
