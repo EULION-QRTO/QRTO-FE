@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import { qrEntry, pickupEntry } from './lib/endpoints'
+import { qrEntry, pickupEntry, menuBoard } from './lib/endpoints'
 import { ApiError } from './lib/api'
 
 // QR 코드에 담긴 URL로 "어느 매장의 / 어떤 주문 방식"인지 결정한다.
@@ -109,6 +109,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let alive = true
+    if (entry.kind !== 'none') {
+      // 메뉴판은 진입 API 응답을 기다릴 필요가 없다(token만 있으면 됨) — 진입 확인과 동시에
+      // 미리 요청해둔다(prefetch). StoreApp이 마운트되어 같은 token으로 menuBoard()를 부르면
+      // 이미 진행 중인 이 요청을 그대로 재사용한다(endpoints.ts의 in-flight 캐시).
+      // 실패는 여기서 무시 — StoreApp이 같은 프라미스를 다시 기다리며 실제 에러 처리를 한다.
+      void menuBoard(entry.token).catch(() => {})
+    }
     ;(async () => {
       if (entry.kind === 'none') {
         setLoad({ status: 'error', message: 'QR 코드를 다시 스캔해 주세요.' })
