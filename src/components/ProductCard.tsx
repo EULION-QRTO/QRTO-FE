@@ -143,7 +143,9 @@ export default function ProductCard({
             loading="lazy"
             decoding="async"
           />
-          <div className="absolute bottom-[-3px] right-0">{controls}</div>
+          {/* 카드 여백(p-[20px]) 안쪽으로 최대한 밀어내 사진을 덜 가리게 함 — 전에는 사진
+              모서리에 거의 겹쳐서 사진 아래쪽 1/3 가량이 버튼/알약에 가려졌었다. */}
+          <div className="absolute bottom-[-16px] right-[-12px]">{controls}</div>
         </div>
       )}
     </div>
