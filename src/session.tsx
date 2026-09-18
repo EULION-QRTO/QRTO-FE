@@ -184,6 +184,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     return { session, phone, setPhone, locationLabel, returnOrderId }
   }, [load, phone, setPhone, entry])
 
+  // 탭 제목을 "Lpay · {매장명}"으로 — 매장 정보를 불러오기 전엔 index.html의 기본값("Lpay")이 보인다.
+  useEffect(() => {
+    if (load.status === 'ready') {
+      document.title = `Lpay · ${load.session.storeName}`
+    }
+  }, [load])
+
   if (load.status === 'loading') return <CenteredMessage title="매장 정보를 불러오는 중…" />
   if (load.status === 'error')
     return <CenteredMessage title={load.message} sub="테이블의 QR 코드를 다시 스캔하면 돼요." />
