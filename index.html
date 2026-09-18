@@ -7,6 +7,12 @@
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"
     />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <!--
+      백엔드 API 도메인 — 운영 base URL은 항상 https://api.lapy.shop(.env.production, API_SPEC.md
+      참고). 로컬 개발(localhost:8080)에서는 어차피 안 쓰여서 무해하고, 운영에서는 JS가 파싱·실행
+      되기 전에 브라우저가 DNS·TCP·TLS를 미리 맺어둔다 — 첫 API 요청(entry) 지연을 줄인다.
+    -->
+    <link rel="preconnect" href="https://api.lapy.shop" crossorigin />
     <title>QRTO · 을지포차</title>
   </head>
   <body>
