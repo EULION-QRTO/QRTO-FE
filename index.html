@@ -13,7 +13,9 @@
       되기 전에 브라우저가 DNS·TCP·TLS를 미리 맺어둔다 — 첫 API 요청(entry) 지연을 줄인다.
     -->
     <link rel="preconnect" href="https://api.lapy.shop" crossorigin />
-    <title>QRTO · 을지포차</title>
+    <!-- 매장 정보를 불러오기 전(또는 실패 시) 잠깐 보이는 기본값 — 로드되면 session.tsx가
+         "Lpay · {매장명}"으로 즉시 바꾼다. -->
+    <title>Lpay</title>
   </head>
   <body>
     <div id="root"></div>
