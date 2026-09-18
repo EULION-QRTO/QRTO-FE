@@ -12,7 +12,6 @@ import {
   cancelOrder,
   getOrder,
 } from '../lib/endpoints'
-import { subscribeOrderStatus } from '../lib/realtime'
 import type { OrderResponse } from '../lib/dto'
 import OrderScreen from './OrderScreen'
 import CartScreen from './CartScreen'
@@ -118,20 +117,30 @@ export default function StoreApp() {
   // 결제대기/확인중 화면에 있었다면 결과에 따라 완료 화면(또는 취소 시 메뉴 화면)으로 넘긴다.
   useEffect(() => {
     if (!order) return
-    const unsubscribe = subscribeOrderStatus(token, order.id, (updated) => {
-      setOrder(updated)
-      const waitingForPayment = viewRef.current === 'pay' || viewRef.current === 'pay-check'
-      if (!waitingForPayment) return
-      if (updated.status === 'CANCELED') {
-        flash('결제가 취소됐어요.')
-        setQuantities({})
-        setView('order')
-      } else if (updated.status !== 'PENDING_PAYMENT') {
-        setQuantities({})
-        setView('done')
-      }
+    let cancelled = false
+    let unsubscribe: (() => void) | undefined
+    // '../lib/realtime'(@stomp/stompjs 포함)는 주문이 생긴 이후에만 필요하므로, 여기서 동적
+    // import로 분리해둔다 — 메뉴만 보는 손님은 이 코드를 아예 받지 않는다(별도 청크).
+    import('../lib/realtime').then(({ subscribeOrderStatus }) => {
+      if (cancelled) return
+      unsubscribe = subscribeOrderStatus(token, order.id, (updated) => {
+        setOrder(updated)
+        const waitingForPayment = viewRef.current === 'pay' || viewRef.current === 'pay-check'
+        if (!waitingForPayment) return
+        if (updated.status === 'CANCELED') {
+          flash('결제가 취소됐어요.')
+          setQuantities({})
+          setView('order')
+        } else if (updated.status !== 'PENDING_PAYMENT') {
+          setQuantities({})
+          setView('done')
+        }
+      })
     })
-    return unsubscribe
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+    }
   }, [order?.id, token, flash])
 
   const allItems = useMemo(() => (menu ? [...menu.menu, ...menu.etc] : []), [menu])

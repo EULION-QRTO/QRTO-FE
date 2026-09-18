@@ -107,18 +107,47 @@ DNS·TLS·서버 처리 시간은 다 빠른데 TCP connect 단계에서만 1.6�
 
 ### B-4. 초기 JS 번들에 `@stomp/stompjs`가 통째로 포함됨
 
-**상태: 미해결**
+**상태: 해결**
 
 실시간 구독([`src/lib/realtime.ts`](src/lib/realtime.ts))은 주문을 "넣은 이후"에만 쓰는데,
 코드 스플리팅 없이 첫 로드부터 다 받는다. 동적 `import()`로 분리하면 메뉴만 보는 손님이
 받아야 할 초기 JS 용량이 줄어든다. (현재 전체 번들 203KB 원본 / 67KB br 압축)
 
+**해결 내용**
+
+- [`src/components/StoreApp.tsx`](src/components/StoreApp.tsx)에서 `import { subscribeOrderStatus }
+  from '../lib/realtime'`(정적 import)를 지우고, 주문 상태 구독 `useEffect` 안에서
+  `import('../lib/realtime')`(동적 import)로 바꿈 — 이 effect는 `order`가 생긴 뒤에만
+  실행되므로(`if (!order) return`), `@stomp/stompjs`를 포함한 `realtime.ts`는 실제로
+  주문을 넣은 손님만 내려받는다. 동적 import가 아직 안 끝난 상태에서 effect가 클린업되는
+  경우(주문 취소 등)를 대비해 `cancelled` 플래그로 늦게 도착한 구독을 무시하도록 처리.
+- Vite/Rollup이 이 모듈을 정적으로 참조하는 곳이 더는 없다는 걸 인식하고 자동으로 별도
+  청크(`realtime-*.js`)로 분리함 — 별도 설정 불필요.
+- `npm run build` 산출물로 실측 (`dist/assets/*.js`, gzip/brotli 직접 압축해 비교):
+
+  | | 이전(메인 청크 하나) | 이후(메인) | 이후(realtime, 지연 로드) |
+  |---|---|---|
+  | 원본 | 203KB | 181.27KB | 23.26KB |
+  | br 압축 | 67KB | 50.48KB | 6.01KB |
+
+  메뉴만 보는 손님이 첫 로드에 받는 JS가 원본 기준 약 22KB(11%), br 압축 기준 약 16.5KB(25%)
+  줄었다. `@stomp/stompjs` 코드는 `grep "STOMP" dist/assets/index-*.js`로 0건, 새로 생긴
+  `dist/assets/realtime-*.js`에서만 검출되는 것으로 확인 — 메인 청크에서 완전히 빠졌다.
+- `npx tsc --noEmit -p tsconfig.app.json`, `npm run build` 모두 정상 통과.
+
 ### B-5. `api.lapy.shop`에 대한 preconnect 힌트 없음
 
-**상태: 미해결**
+**상태: 해결 (A-3에서 함께 처리됨)**
 
 `index.html`엔 폰트 CDN(jsdelivr)만 `<link rel="preconnect">` 되어 있고, 정작 첫 API 호출
 대상인 백엔드 도메인엔 없다. (A-3의 완화책과 동일한 작업이라 A-3에서 같이 처리 예정)
+
+**해결 내용**
+
+A-3 해결 내용과 동일 — [`index.html`](index.html)에 추가한
+`<link rel="preconnect" href="https://api.lapy.shop" crossorigin />`가 이 항목이 지적한
+문제를 그대로 해결한다. 별도 커밋 없이 A-3 작업(커밋 `f71dbc0`)에 이미 포함되어 있었는데,
+이 문서에는 상태 갱신이 누락되어 있었다 — B-4 작업과 함께 바로잡음.
 
 ---
 
