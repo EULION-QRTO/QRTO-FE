@@ -42,7 +42,7 @@ API(entry, menu-board)만 직접 때려서 측정했다.
 
 ### A-2. 정적 파일(JS/CSS) 캐시 헤더가 사실상 무의미
 
-**상태: 미해결**
+**상태: 해결 (배포 후 실측 재확인 예정)**
 
 실측(`curl -I`):
 ```
@@ -55,6 +55,16 @@ API(entry, menu-board)만 직접 때려서 측정했다.
 즉시 로드된다.
 
 관련 파일: [`vercel.json`](vercel.json) (현재 rewrites만 있고 headers 설정 없음).
+
+**해결 내용**
+
+- [`vercel.json`](vercel.json)에 `headers` 규칙 추가 — `/assets/(.*)` 경로에
+  `Cache-Control: public, max-age=31536000, immutable`.
+- `index.html`(파일명 고정, 해시 없음)은 건드리지 않음 — 새 배포마다 최신 번들 파일명을
+  가리키는 index.html을 매번 새로 받아와야 하므로, 기존 `max-age=0, must-revalidate`를
+  그대로 유지하는 게 맞다.
+- 이 설정은 Vercel 배포 시에만 적용되는 헤더라 로컬 `npm run dev`/`vite build`로는
+  검증할 수 없다 — **배포 후 `curl -I`로 재확인해 이 절을 갱신할 예정.**
 
 ---
 
