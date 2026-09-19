@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import lpayLogo from '../assets/lpay_new_logo.svg'
 import { useSession } from '../session'
+import FitText from './FitText'
 
 function BrandMark() {
   // 폭은 자연 비율(auto)로 두고, 높이는 40px 고정.
@@ -22,10 +23,15 @@ export default function Header({
       <div className="px-[24px] pb-[14px] pt-[calc(env(safe-area-inset-top)+44px)]">
         <div className="flex min-h-[33px] items-center">
           <BrandMark />
-          <h1 className="ml-[12px] text-[24px] font-bold leading-none text-[#181a1f]">
-            {session.storeName}
-          </h1>
-          <span className="ml-auto whitespace-nowrap text-[13px] font-semibold text-[#969ca3]">
+          <FitText
+            as="h1"
+            text={session.storeName}
+            maxSize={24}
+            minSize={14}
+            containerClassName="ml-[12px] flex-1"
+            className="font-bold leading-none text-[#181a1f]"
+          />
+          <span className="ml-[8px] whitespace-nowrap text-[13px] font-semibold text-[#969ca3]">
             {locationLabel}
           </span>
           {onOrderHistory && (
