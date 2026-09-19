@@ -4,11 +4,10 @@ import { useSession } from '../session'
 
 function BrandMark() {
   // 이 SVG는 캔버스(뷰박스) 전체에 여백을 두고 그려져 있어서(실제 로고는 뷰박스 높이의
-  // 약 61%만 차지), 기존 로고와 같은 높이(19px)로 두면 실제 보이는 로고가 그보다 훨씬
-  // 작아 보인다 — 예전 로고 체감 크기(약 19px)와 비슷하게 맞추려고 컨테이너 높이를
-  // 31px로 키웠다(31 × 0.61 ≈ 19). 헤더 줄이 items-center라 커져도 다른 요소를
-  // 가리거나 줄을 넘치지 않는다.
-  return <img alt="Lpay" className="h-[31px] w-auto shrink-0" src={lpayLogo} />
+  // 약 61%만 차지) 체감 크기가 컨테이너 높이보다 작게 보인다(40 × 0.61 ≈ 24 — 매장명
+  // 텍스트(24px)와 비슷한 높이). 헤더 줄이 items-center라 커져도 다른 요소를 가리거나
+  // 줄을 넘치지 않는다.
+  return <img alt="Lpay" className="h-[40px] w-auto shrink-0" src={lpayLogo} />
 }
 
 // 모든 화면이 공유하는 상단 헤더. 두 번째 줄(탭 / 뒤로가기·제목)은 secondRow로 주입한다.
