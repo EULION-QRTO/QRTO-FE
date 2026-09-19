@@ -1,13 +1,11 @@
 import type { ReactNode } from 'react'
-import lpayLogo from '../assets/lpay_new_logo.svg'
+import lapyLogo from '../assets/lapy_logo.svg'
 import { useSession } from '../session'
 
 function BrandMark() {
-  // 이 SVG는 캔버스(뷰박스) 전체에 여백을 두고 그려져 있어서(실제 로고는 뷰박스 높이의
-  // 약 61%만 차지) 체감 크기가 컨테이너 높이보다 작게 보인다(40 × 0.61 ≈ 24 — 매장명
-  // 텍스트(24px)와 비슷한 높이). 헤더 줄이 items-center라 커져도 다른 요소를 가리거나
-  // 줄을 넘치지 않는다.
-  return <img alt="Lpay" className="h-[40px] w-auto shrink-0" src={lpayLogo} />
+  // SVG 뷰박스를 실제 글자 영역(원본 100x100 중 22,37~81,66)으로 잘라내서 뒀기 때문에
+  // 폭은 자연 비율(auto)로 두고, 높이만 매장명 텍스트(24px)와 비슷하게 맞춘다.
+  return <img alt="Lapy" className="h-[19px] w-auto shrink-0" src={lapyLogo} />
 }
 
 // 모든 화면이 공유하는 상단 헤더. 두 번째 줄(탭 / 뒤로가기·제목)은 secondRow로 주입한다.
