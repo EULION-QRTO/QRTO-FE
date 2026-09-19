@@ -28,7 +28,7 @@ export default function Header({
             text={session.storeName}
             maxSize={24}
             minSize={14}
-            containerClassName="ml-[12px] flex-1"
+            containerClassName="ml-[2px] flex-1"
             className="font-bold leading-none text-[#181a1f]"
           />
           <span className="ml-[8px] whitespace-nowrap text-[13px] font-semibold text-[#969ca3]">
