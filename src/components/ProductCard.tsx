@@ -143,9 +143,10 @@ export default function ProductCard({
             loading="lazy"
             decoding="async"
           />
-          {/* 카드 여백(p-[20px]) 안쪽으로 최대한 밀어내 사진을 덜 가리게 함 — 전에는 사진
-              모서리에 거의 겹쳐서 사진 아래쪽 1/3 가량이 버튼/알약에 가려졌었다. */}
-          <div className="absolute bottom-[-16px] right-[-12px]">{controls}</div>
+          {/* 카드 여백(p-[20px]) 기준으로, 컨트롤이 카드 하단 14px·우측 20px만큼 떨어지도록
+              사진 박스 모서리에서 밀어낸다 — 우측은 카드 padding과 정확히 같아서 0(사진 박스
+              오른쪽 끝에 맞춤), 하단은 20px 중 14px만 남기고 나머지 6px만큼 아래로 민다. */}
+          <div className="absolute bottom-[-6px] right-0">{controls}</div>
         </div>
       )}
     </div>
