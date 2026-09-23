@@ -254,6 +254,18 @@ export default function StoreApp() {
     }
   }
 
+  // '결제 확인 중' 화면의 취소 — 결제수단을 잘못 고르거나 더 담고 싶어진 손님을 위해,
+  // 페이앱 쪽 결제 요청은 신경 쓰지 않고(어차피 결제대기 주문 취소로 무효화됨) 이 탭에서
+  // 바로 장바구니로 돌아간다. 새 탭을 열었던 결제창은 그대로 두되(닫을 방법이 없음 — 이
+  // 탭에서 그 창을 참조하고 있지 않음), 이 탭의 주문만 취소하면 페이앱이 나중에 결제를
+  // 완료 통보해도 서버가 더 이상 유효하지 않은 주문으로 처리한다.
+  const cancelPendingPayment = () => {
+    if (!order) return
+    void cancelOrder(order.id, token).catch(() => {})
+    setOrder(null)
+    setView('cart')
+  }
+
   const staffCall = async () => {
     if (session.mode !== 'table') return
     try {
@@ -305,7 +317,7 @@ export default function StoreApp() {
   if (!phoneGate && view === 'pay-check') {
     return (
       <>
-        <PaymentCheckScreen onOpenHistory={openHistory} />
+        <PaymentCheckScreen onOpenHistory={openHistory} onCancel={cancelPendingPayment} />
         {noticeBar}
       </>
     )
