@@ -216,25 +216,38 @@ export default function StoreApp() {
     }
   }
 
-  // 결제 요청(페이앱) — mock은 즉시 완료, live는 결제창(payUrl)으로 이동시킨다.
-  // 실제 결제 완료 판정은 페이앱 서버 통보로만 이루어지므로, 이동 후 결과는 복귀 URL(?orderId=)의
-  // '결제 확인 중' 화면과 실시간 구독이 이어받는다.
+  // 결제 요청(페이앱) — mock은 즉시 완료, live는 결제창(payUrl)을 새 탭에서 연다.
+  // 실제 결제 완료 판정은 페이앱 서버 통보로만 이루어지므로, 결과는 이 탭에 남아있는
+  // 실시간 구독(WebSocket)이 받아 처리한다 — 새 탭은 페이앱 결제 진행용일 뿐이다.
   const startPayment = async () => {
     if (!order || placing) return
     setPlacing(true)
+    // 팝업 차단을 피하려면 window.open은 클릭(사용자 제스처) 안에서 "동기적으로" 호출해야
+    // 한다 — await 이후에 부르면 브라우저가 사용자가 시작한 동작으로 인정하지 않고 막는
+    // 경우가 많다(특히 모바일 Safari). 그래서 빈 탭을 먼저 열어두고, payUrl을 받으면
+    // 그 탭의 위치만 바꾼다.
+    const payWindow = window.open('', '_blank')
     try {
       const res = await requestPayment({ orderId: order.id, token })
       if (res.status === 'PAID') {
+        payWindow?.close()
         setOrder(res.order)
         setQuantities({})
         setView('done')
       } else if (res.payUrl) {
-        window.location.href = res.payUrl
-        return // 페이지 이동 — placing 해제 불필요(언마운트됨)
+        if (payWindow) {
+          payWindow.location.href = res.payUrl
+          setView('pay-check') // 결제는 새 탭에서 진행 — 이 탭은 실시간 구독으로 결과를 기다린다
+        } else {
+          // 팝업이 차단된 경우 — 기존처럼 현재 탭에서 이동
+          window.location.href = res.payUrl
+        }
       } else {
+        payWindow?.close()
         flash('결제 페이지를 여는 데 실패했습니다.')
       }
     } catch (e) {
+      payWindow?.close()
       flash(e instanceof ApiError ? e.message : '결제 요청에 실패했습니다.')
     } finally {
       setPlacing(false)
