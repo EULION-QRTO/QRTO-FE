@@ -13,6 +13,7 @@ import {
   getOrder,
 } from '../lib/endpoints'
 import type { OrderResponse } from '../lib/dto'
+import { readPendingPayment, writePendingPayment } from '../lib/pendingPayment'
 import OrderScreen from './OrderScreen'
 import CartScreen from './CartScreen'
 import PayScreen from './PayScreen'
@@ -82,6 +83,8 @@ export default function StoreApp() {
   // 결제가 아직 안 끝났으면(PENDING_PAYMENT) '결제 확인 중' 화면에서 실시간 구독(아래)이 이어받는다.
   useEffect(() => {
     if (returnOrderId == null) return
+    // 결제를 끝내고 정상적으로 돌아온 경우 — 뒤로가기 복구용 마커는 더 이상 필요 없다.
+    writePendingPayment(token, null)
     let alive = true
     ;(async () => {
       try {
@@ -111,6 +114,40 @@ export default function StoreApp() {
     // returnOrderId/token은 세션당 한 번만 정해지고 바뀌지 않는다 — 최초 1회만 실행하면 된다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [returnOrderId])
+
+  // 결제 도중(페이앱→PG사 등 여러 단계를 거쳤더라도) 뒤로가기로 돌아온 경우 — 결제를 끝내지
+  // 않고 돌아온 것이므로 결제대기 주문을 취소하고 장바구니로 되돌린다. 정상적으로 결제를 마치고
+  // 돌아온 경우(위 returnOrderId 효과, ?orderId=)라면 그 효과가 먼저 마커를 지우므로 여기선
+  // 아무 일도 하지 않는다.
+  const recoverFromAbandonedPayment = useCallback(
+    (pending: ReturnType<typeof readPendingPayment>) => {
+      if (!pending) return
+      writePendingPayment(token, null)
+      void cancelOrder(pending.orderId, token).catch(() => {})
+      setOrder(null)
+      setQuantities(pending.quantities)
+      setView('cart')
+    },
+    [token],
+  )
+
+  useEffect(() => {
+    if (returnOrderId != null) return // 정상 복귀 — 위 효과가 처리
+    recoverFromAbandonedPayment(readPendingPayment(token))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  useEffect(() => {
+    // 페이지가 언로드되지 않고 브라우저 bfcache에 보관됐다가 뒤로가기로 복원되는 경우
+    // (흔한 케이스) — 컴포넌트가 다시 마운트되지 않으므로 위 마운트 시점 체크로는 못 잡는다.
+    // pageshow의 event.persisted가 그 신호다.
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (!e.persisted) return
+      recoverFromAbandonedPayment(readPendingPayment(token))
+    }
+    window.addEventListener('pageshow', onPageShow)
+    return () => window.removeEventListener('pageshow', onPageShow)
+  }, [recoverFromAbandonedPayment, token])
 
   // 결제대기/확인중 주문의 실시간 상태 구독 — 결제 확정(RECEIVED) → 조리중 → 완료 → 서빙/픽업,
   // 취소·청산까지 전부 STATUS_CHANGED 로 온다. order.status/statusLabel 을 그대로 갱신하고,
@@ -216,38 +253,28 @@ export default function StoreApp() {
     }
   }
 
-  // 결제 요청(페이앱) — mock은 즉시 완료, live는 결제창(payUrl)을 새 탭에서 연다.
-  // 실제 결제 완료 판정은 페이앱 서버 통보로만 이루어지므로, 결과는 이 탭에 남아있는
-  // 실시간 구독(WebSocket)이 받아 처리한다 — 새 탭은 페이앱 결제 진행용일 뿐이다.
+  // 결제 요청(페이앱) — mock은 즉시 완료, live는 현재 탭을 결제창(payUrl)으로 이동시킨다.
+  // 이동 직전에 뒤로가기 복구용 마커(주문 id + 장바구니 스냅샷)를 남겨둔다 — 페이앱→PG사 등
+  // 여러 단계를 거치더라도 결제를 끝내지 않고 뒤로가기로 돌아오면 위쪽 효과들이 이걸로
+  // 감지해 결제대기 주문을 취소하고 장바구니를 복원한다. 결제를 마치고 정상적으로 돌아오면
+  // (?orderId=) 그 흐름에서 마커를 지운다.
   const startPayment = async () => {
     if (!order || placing) return
     setPlacing(true)
-    // 팝업 차단을 피하려면 window.open은 클릭(사용자 제스처) 안에서 "동기적으로" 호출해야
-    // 한다 — await 이후에 부르면 브라우저가 사용자가 시작한 동작으로 인정하지 않고 막는
-    // 경우가 많다(특히 모바일 Safari). 그래서 빈 탭을 먼저 열어두고, payUrl을 받으면
-    // 그 탭의 위치만 바꾼다.
-    const payWindow = window.open('', '_blank')
     try {
       const res = await requestPayment({ orderId: order.id, token })
       if (res.status === 'PAID') {
-        payWindow?.close()
         setOrder(res.order)
         setQuantities({})
         setView('done')
       } else if (res.payUrl) {
-        if (payWindow) {
-          payWindow.location.href = res.payUrl
-          setView('pay-check') // 결제는 새 탭에서 진행 — 이 탭은 실시간 구독으로 결과를 기다린다
-        } else {
-          // 팝업이 차단된 경우 — 기존처럼 현재 탭에서 이동
-          window.location.href = res.payUrl
-        }
+        writePendingPayment(token, { orderId: order.id, quantities })
+        window.location.href = res.payUrl
+        return // 페이지 이동 — placing 해제 불필요(언마운트됨)
       } else {
-        payWindow?.close()
         flash('결제 페이지를 여는 데 실패했습니다.')
       }
     } catch (e) {
-      payWindow?.close()
       flash(e instanceof ApiError ? e.message : '결제 요청에 실패했습니다.')
     } finally {
       setPlacing(false)
