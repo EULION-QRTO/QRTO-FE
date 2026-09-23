@@ -1,5 +1,6 @@
 import Frame from './Frame'
 import Header from './Header'
+import BottomButton from './BottomButton'
 
 // 결제 확인 중 화면 — 페이앱 결제창에서 돌아왔을 때 보여준다(?orderId= 로 진입).
 // 결제 완료 판정은 페이앱 서버가 우리 서버로 통보해야 이루어지므로, 손님앱은 그 결과가
@@ -29,14 +30,9 @@ export default function PaymentCheckScreen({
         <p className="text-[14px] font-medium text-[#969ca3]">
           잠시만 기다려 주세요. 결제가 확인되면 자동으로 넘어가요.
         </p>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="mt-[8px] text-[14px] font-semibold text-[#969ca3] underline underline-offset-2"
-        >
-          결제 요청 취소하고 장바구니로 돌아가기
-        </button>
       </main>
+
+      <BottomButton label="결제 요청 취소하고 장바구니로 돌아가기" active onClick={onCancel} />
     </Frame>
   )
 }
