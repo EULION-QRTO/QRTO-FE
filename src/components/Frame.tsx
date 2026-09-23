@@ -4,7 +4,7 @@ import type { ReactNode } from 'react'
 // 모바일에서는 화면을 가득 채우고, 데스크톱에서는 440px 컬럼으로 가운데 정렬된다.
 export default function Frame({ children }: { children: ReactNode }) {
   return (
-    <div className="relative flex h-[100dvh] w-full min-w-0 max-w-[440px] flex-col overflow-hidden bg-[#f4f5f7]">
+    <div className="relative mx-auto flex h-[100dvh] w-full min-w-0 max-w-[440px] flex-col overflow-hidden bg-[#f4f5f7]">
       {children}
     </div>
   )

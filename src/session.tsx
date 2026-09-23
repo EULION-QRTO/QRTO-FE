@@ -95,7 +95,7 @@ type LoadState =
 
 function CenteredMessage({ title, sub }: { title: string; sub?: string }) {
   return (
-    <div className="flex h-[100dvh] w-full max-w-[440px] flex-col items-center justify-center gap-[12px] bg-[#f4f5f7] px-[40px] text-center">
+    <div className="mx-auto flex h-[100dvh] w-full max-w-[440px] flex-col items-center justify-center gap-[12px] bg-[#f4f5f7] px-[40px] text-center">
       <p className="text-[20px] font-bold text-[#181a1f]">{title}</p>
       {sub && <p className="text-[14px] font-medium text-[#969ca3]">{sub}</p>}
     </div>
