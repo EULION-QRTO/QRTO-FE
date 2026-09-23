@@ -22,7 +22,7 @@ function QuantityCounter({
         type="button"
         onClick={onDecrement}
         aria-label="수량 감소"
-        className="flex size-[22px] items-center justify-center"
+        className="flex size-[26px] items-center justify-center"
       >
         <img alt="" className="h-[2px] w-[13px]" src={minusWhite} />
       </button>
@@ -31,7 +31,7 @@ function QuantityCounter({
         type="button"
         onClick={onIncrement}
         aria-label="수량 증가"
-        className="flex size-[22px] items-center justify-center"
+        className="flex size-[26px] items-center justify-center"
       >
         <img alt="" className="size-[16px]" src={plusWhite} />
       </button>
