@@ -253,32 +253,56 @@ export default function StoreApp() {
     }
   }
 
-  // 결제 요청(페이앱) — mock은 즉시 완료, live는 현재 탭을 결제창(payUrl)으로 이동시킨다.
-  // 이동 직전에 뒤로가기 복구용 마커(주문 id + 장바구니 스냅샷)를 남겨둔다 — 페이앱→PG사 등
-  // 여러 단계를 거치더라도 결제를 끝내지 않고 뒤로가기로 돌아오면 위쪽 효과들이 이걸로
-  // 감지해 결제대기 주문을 취소하고 장바구니를 복원한다. 결제를 마치고 정상적으로 돌아오면
-  // (?orderId=) 그 흐름에서 마커를 지운다.
+  // 결제 요청(페이앱) — mock은 즉시 완료, live는 결제창(payUrl)을 새 탭에서 연다.
+  // 페이앱→PG사(토스/카카오페이/네이버페이 등)로 넘어간 뒤에는 그쪽이 자체적으로 뒤로가기를
+  // 막거나 앱으로 넘어가 버려서, 뒤로가기가 우리 쪽으로 돌아온다는 보장이 없다 — 그래서 이
+  // 탭은 그대로 두고 새 탭에서 결제를 진행시킨다. 이 탭은 실시간 구독으로 결제 완료를 받고,
+  // '결제 확인 중' 화면엔 언제든 확실하게 취소할 수 있는 버튼을 띄워둔다(cancelPendingPayment).
   const startPayment = async () => {
     if (!order || placing) return
     setPlacing(true)
+    // 팝업 차단을 피하려면 window.open은 클릭(사용자 제스처) 안에서 "동기적으로" 호출해야
+    // 한다 — await 이후에 부르면 브라우저가 사용자가 시작한 동작으로 인정하지 않고 막는
+    // 경우가 많다(특히 모바일 Safari). 그래서 빈 탭을 먼저 열어두고, payUrl을 받으면
+    // 그 탭의 위치만 바꾼다.
+    const payWindow = window.open('', '_blank')
     try {
       const res = await requestPayment({ orderId: order.id, token })
       if (res.status === 'PAID') {
+        payWindow?.close()
         setOrder(res.order)
         setQuantities({})
         setView('done')
       } else if (res.payUrl) {
-        writePendingPayment(token, { orderId: order.id, quantities })
-        window.location.href = res.payUrl
-        return // 페이지 이동 — placing 해제 불필요(언마운트됨)
+        if (payWindow) {
+          payWindow.location.href = res.payUrl
+          setView('pay-check') // 결제는 새 탭에서 진행 — 이 탭은 실시간 구독으로 결과를 기다린다
+        } else {
+          // 팝업이 차단된 경우 — 기존처럼 현재 탭에서 이동. 이 경로는 이 탭도 같이 떠나므로,
+          // 뒤로가기로 돌아왔을 때 복구할 수 있도록 마커를 남겨둔다.
+          writePendingPayment(token, { orderId: order.id, quantities })
+          window.location.href = res.payUrl
+        }
       } else {
+        payWindow?.close()
         flash('결제 페이지를 여는 데 실패했습니다.')
       }
     } catch (e) {
+      payWindow?.close()
       flash(e instanceof ApiError ? e.message : '결제 요청에 실패했습니다.')
     } finally {
       setPlacing(false)
     }
+  }
+
+  // '결제 확인 중' 화면의 명시적 취소 — 다른 탭(페이앱/PG사)이 지금 어떤 상태든 상관없이,
+  // 이 탭에서 항상 확실하게 결제대기 주문을 취소하고 장바구니로 돌아갈 수 있게 한다.
+  const cancelPendingPayment = () => {
+    if (!order) return
+    writePendingPayment(token, null)
+    void cancelOrder(order.id, token).catch(() => {})
+    setOrder(null)
+    setView('cart')
   }
 
   const staffCall = async () => {
@@ -332,7 +356,7 @@ export default function StoreApp() {
   if (!phoneGate && view === 'pay-check') {
     return (
       <>
-        <PaymentCheckScreen onOpenHistory={openHistory} />
+        <PaymentCheckScreen onOpenHistory={openHistory} onCancel={cancelPendingPayment} />
         {noticeBar}
       </>
     )
